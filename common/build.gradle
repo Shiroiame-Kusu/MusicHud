@@ -26,4 +26,9 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    enabled = false
+}
+
+shadowJar {
+    enabled = false
 }

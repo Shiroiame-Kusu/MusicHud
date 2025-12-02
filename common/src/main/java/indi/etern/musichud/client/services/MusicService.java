@@ -21,6 +21,8 @@ import indi.etern.musichud.network.requestResponseCycle.GetPlaylistDetailRespons
 import indi.etern.musichud.throwable.ApiException;
 import indi.etern.musichud.utils.music.StreamAudioPlayer;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundSource;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
@@ -196,10 +198,12 @@ public class MusicService {
             if (!musicDetail.equals(MusicDetail.NONE)) {
                 loadResource(musicDetail);
                 StreamAudioPlayer streamAudioPlayer = StreamAudioPlayer.getInstance();
+                Minecraft.getInstance().getSoundManager().stop(null, SoundSource.MUSIC);
                 streamAudioPlayer.playAsyncFromUrl(resourceInfo.getUrl(), resourceInfo.getType(), serverStartTime).thenAccept(localDateTime -> {
                     NowPlayingInfo.getInstance().switchMusic(musicDetail, resourceInfo, localDateTime);
                 });
             } else {
+                NowPlayingInfo.getInstance().switchMusic(MusicDetail.NONE, MusicResourceInfo.NONE, null);
                 StreamAudioPlayer streamAudioPlayer = StreamAudioPlayer.getInstance();
                 streamAudioPlayer.stop();
             }
@@ -227,6 +231,7 @@ public class MusicService {
         public static void reset() {
             if (instance != null) {
                 instance.switchMusic(MusicDetail.NONE, MusicResourceInfo.NONE, null);
+                instance.idlePlaySourceLoaded = false;
                 instance.musicQueue.clear();
                 instance.idlePlaylistAddListeners.clear();
                 instance.idlePlaylistRemoveListeners.clear();
@@ -238,6 +243,7 @@ public class MusicService {
             if (HudRendererManager.isLoaded()) {
                 HudRendererManager.getInstance().reset();
             }
+            NowPlayingInfo.getInstance().switchMusic(MusicDetail.NONE, MusicResourceInfo.NONE, null);
         }
     }
 }

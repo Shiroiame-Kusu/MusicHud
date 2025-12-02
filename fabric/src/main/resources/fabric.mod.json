@@ -2,14 +2,13 @@
   "schemaVersion": 1,
   "id": "music_hud",
   "version": "${version}",
-  "name": "music hud",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "name": "Music Hud",
+  "description": "A mod allow to play music from NCM in whole server ",
   "authors": [
     "Etern"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "sources": "https://github.com/Etern-34520/MusicHud"
   },
   "license": "GPL-3.0",
   "icon": "assets/music_hud/icon.png",

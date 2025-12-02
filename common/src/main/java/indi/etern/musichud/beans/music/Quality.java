@@ -10,7 +10,7 @@ public enum Quality {
      * standard => 标准
      * higher   => 较高
      * exhigh   => 极高
-     * lossless => 无损
+     * lossless => 无损 (高清臻音)
      * hires    => Hi-Res
      * jyeffect => 高清环绕声
      * sky      => 沉浸环绕声

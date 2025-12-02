@@ -100,7 +100,7 @@ public class NowPlayingInfo {
                                 LyricLine next = finalLyricLines.peek();
                                 if (next == null) {
                                     callLyricsUpdateListeners(line);
-                                    logger.info("lyricsUpdater stopped due to no more lyrics");
+                                    logger.debug("lyricsUpdater stopped due to no more lyrics");
                                     break;
                                 } else if (LocalDateTime.now().isBefore(musicStartTime.plus(next.getStartTime()))) {
                                     callLyricsUpdateListeners(line);

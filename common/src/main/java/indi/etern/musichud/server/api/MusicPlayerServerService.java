@@ -32,9 +32,10 @@ public class MusicPlayerServerService {
     boolean continuable;
     volatile Runnable musicDataPusher;
     private Logger logger = MusicHud.getLogger(MusicPlayerServerService.class);
-    private int musicIntervalMillis = 2000;
+    private int musicIntervalMillis = 1000;
     @Getter
     private volatile MusicDetail currentMusicDetail = MusicDetail.NONE;
+    private volatile MusicResourceInfo currentMusicResourceInfo = MusicResourceInfo.NONE;
     @Getter
     private volatile LocalDateTime nowPlayingStartTime = LocalDateTime.MIN;
 
@@ -117,6 +118,7 @@ public class MusicPlayerServerService {
                                                 new SwitchMusicMessage(nextToPlay, resourceInfo, preloadMusicDetail, preloadResourceInfo)
                                         );
                                         currentMusicDetail = nextToPlay;
+                                        currentMusicResourceInfo = resourceInfo;
                                         nowPlayingStartTime = LocalDateTime.now();
                                         logger.info("Switched to music: {} (ID: {})", nextToPlay.getName(), nextToPlay.getId());
                                         try {
@@ -185,10 +187,12 @@ public class MusicPlayerServerService {
         NetworkManager.sendToPlayer(serverPlayer,
                 new RefreshMusicQueueMessage(musicQueue));
         if (currentMusicDetail != MusicDetail.NONE) {
-            MusicResourceInfo resourceInfo = musicApiService.getResourceInfo(currentMusicDetail);
-            if (resourceInfo != null) {
+            if (currentMusicResourceInfo.getId() != currentMusicDetail.getId()) {
+                currentMusicResourceInfo = musicApiService.getResourceInfo(currentMusicDetail);
+            }
+            if (currentMusicResourceInfo != null && !currentMusicResourceInfo.equals(MusicResourceInfo.NONE)) {
                 NetworkManager.sendToPlayer(serverPlayer,
-                        new SyncCurrentPlayingMessage(currentMusicDetail, resourceInfo, nowPlayingStartTime));
+                        new SyncCurrentPlayingMessage(currentMusicDetail, currentMusicResourceInfo, nowPlayingStartTime));
             } else {
                 logger.warn("Failed to get resource info for current playing music ID: {}", currentMusicDetail.getId());
             }

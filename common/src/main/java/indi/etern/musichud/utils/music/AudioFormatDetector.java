@@ -1,0 +1,82 @@
+package indi.etern.musichud.utils.music;
+
+import indi.etern.musichud.beans.music.FormatType;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+public class AudioFormatDetector {
+    private static final byte[] ID3_HEADER = {0x49, 0x44, 0x33}; // "ID3"
+    private static final byte[] FLAC_HEADER = {0x66, 0x4C, 0x61, 0x43}; // "fLaC"
+    private static final byte[] RIFF_HEADER = {0x52, 0x49, 0x46, 0x46}; // "RIFF"
+    private static final byte[] WAVE_HEADER = {0x57, 0x41, 0x56, 0x45}; // "WAVE"
+
+    public static FormatType detectFormat(InputStream inputStream) throws IOException {
+        if (!inputStream.markSupported()) {
+            throw new IllegalArgumentException("InputStream must support mark/reset");
+        }
+
+        inputStream.mark(1024); // 增加标记大小以检测ID3标签
+        byte[] header = new byte[1024];
+        int bytesRead = inputStream.read(header);
+        inputStream.reset();
+
+        if (bytesRead < 4) {
+            throw new IOException("Insufficient data to determine format");
+        }
+
+        // 检测FLAC格式
+        if (header[0] == FLAC_HEADER[0] && header[1] == FLAC_HEADER[1] &&
+                header[2] == FLAC_HEADER[2] && header[3] == FLAC_HEADER[3]) {
+            return FormatType.FLAC;
+        }
+
+        // 检测MP3格式（通过ID3标签）
+        if (header[0] == ID3_HEADER[0] && header[1] == ID3_HEADER[1] &&
+                header[2] == ID3_HEADER[2]) {
+            return FormatType.MP3;
+        }
+
+/*
+        // 检测WAV格式
+        if (header[0] == RIFF_HEADER[0] && header[1] == RIFF_HEADER[1] &&
+                header[2] == RIFF_HEADER[2] && header[3] == RIFF_HEADER[3] &&
+                header[8] == WAVE_HEADER[0] && header[9] == WAVE_HEADER[1] &&
+                header[10] == WAVE_HEADER[2] && header[11] == WAVE_HEADER[3]) {
+            return FormatType.UNSET;
+        }
+*/
+
+        // 如果没有ID3标签，尝试检测MP3帧头（更复杂的检测）
+        if (detectMP3FrameHeader(header, bytesRead)) {
+            return FormatType.MP3;
+        }
+
+        throw new IOException("Unsupported audio format");
+    }
+
+    private static boolean detectMP3FrameHeader(byte[] header, int length) {
+        // MP3帧头检测：查找11个连续的1位（0xFF + 第二字节的高3位为111）
+        for (int i = 0; i < length - 3; i++) {
+            if ((header[i] & 0xFF) == 0xFF) {
+                int secondByte = header[i + 1] & 0xFF;
+                // 检查第二字节的高3位是否为111（MPEG版本和层信息）
+                if ((secondByte & 0xE0) == 0xE0) {
+                    // 进一步验证这是一个有效的MP3帧头
+                    int thirdByte = header[i + 2] & 0xFF;
+                    int fourthByte = header[i + 3] & 0xFF;
+
+                    // 检查位率索引（不能是1111，表示无效）
+                    if ((thirdByte & 0xF0) != 0xF0) {
+                        // 检查采样率索引（不能是11，表示无效）
+                        if ((thirdByte & 0x0C) != 0x0C) {
+                            // 检查保护位、填充位等
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}

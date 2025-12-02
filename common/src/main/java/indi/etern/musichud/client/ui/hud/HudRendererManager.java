@@ -64,7 +64,7 @@ public class HudRendererManager {
                     instance = new HudRendererManager();
                     BackgroundColor bgColor = new BackgroundColor(
                             0xA01A1A1A, 0xF0202020,
-                            0X80252525, 0xE42A2A2A
+                            0XD0202020, 0xE42A2A2A
                     );
                     instance.setBgColor(bgColor);
                     instance.updateLayoutFromConfig();

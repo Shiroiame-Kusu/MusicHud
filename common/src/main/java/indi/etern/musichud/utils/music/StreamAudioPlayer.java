@@ -2,7 +2,6 @@ package indi.etern.musichud.utils.music;
 
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.FormatType;
-import lombok.Getter;
 import lombok.SneakyThrows;
 import net.minecraft.client.Minecraft;
 import net.minecraft.sounds.SoundSource;
@@ -10,10 +9,11 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.openal.AL10;
 
-import java.io.IOException;
+import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,10 +50,6 @@ public class StreamAudioPlayer {
 
     public CompletableFuture<LocalDateTime> playAsyncFromUrl(String urlString, FormatType formatType, LocalDateTime startTime) {
         synchronized (StreamAudioPlayer.class) {
-            if (initialized.get()) {
-                stop();
-            }
-
             try {
                 source = AL10.alGenSources();
                 checkALError("alGenSources");
@@ -68,6 +64,7 @@ public class StreamAudioPlayer {
                 AL10.alSource3f(source, AL10.AL_POSITION, 0, 0, 0);
                 AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0);
                 checkALError("source configuration");
+                lastVolume = 1;
 
                 initialized.set(true);
             } catch (Exception e) {
@@ -83,13 +80,17 @@ public class StreamAudioPlayer {
         return startPlayingFuture;
     }
 
-    private long calculateSamplesToSkip(AudioDecoder audioDecoder,LocalDateTime originalStartTime) {
+    private long calculateSamplesToSkip(AudioDecoder audioDecoder, LocalDateTime originalStartTime) {
         if (originalStartTime == null) {
             return 0;
         }
         java.time.Duration totalDuration = java.time.Duration.between(originalStartTime, LocalDateTime.now());
-        long totalSeconds = totalDuration.getSeconds();
-        return totalSeconds * audioDecoder.getSampleRate();
+        if (totalDuration.isPositive()) {
+            long totalSeconds = totalDuration.getSeconds();
+            return totalSeconds * audioDecoder.getSampleRate();
+        } else {
+            return 0;
+        }
     }
 
     // 带重试的播放方法
@@ -99,8 +100,19 @@ public class StreamAudioPlayer {
             LocalDateTime startTime,
             int retryCount) {
         try {
-            AudioDecoder decoder = getAudioDecoder(urlString, formatType);
+            URL url = new URI(urlString).toURL();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
+            InputStream inputStream = connection.getInputStream();
+            BufferedInputStream bufferedStream = new BufferedInputStream(inputStream, 8192);
 
+            FormatType detectedFormatType = AudioFormatDetector.detectFormat(bufferedStream);
+            if (detectedFormatType != formatType) {
+                LOGGER.warn("Detected format type is not equals to resource format type, using detected");
+            }
+
+            AudioDecoder decoder = detectedFormatType.newDecoder(bufferedStream);
             // 统一计算需要跳过的样本数
             long samplesToSkip = calculateSamplesToSkip(decoder, startTime);
             if (samplesToSkip > 0) {
@@ -109,6 +121,7 @@ public class StreamAudioPlayer {
 
             return startPlayingAsync(urlString, formatType, startTime, retryCount, decoder);
         } catch (Exception e) {
+            LOGGER.error("Catch an exception, retrying", e);
             if (retryCount < maxRetries) {
                 reconnecting.set(true);
 
@@ -130,11 +143,12 @@ public class StreamAudioPlayer {
             LocalDateTime startTime,
             int retryCount,
             AudioDecoder decoder) {
+        validateAudioFormat(decoder);
+
         CompletableFuture<LocalDateTime> future = new CompletableFuture<>();
         MusicHud.EXECUTOR.execute(() -> {
             playingThread = Thread.currentThread();
             try {
-                int buffersQueued = 0;
                 synchronized (StreamAudioPlayer.class) {
                     if (!initialized.get() || source == 0) return;
 
@@ -142,26 +156,26 @@ public class StreamAudioPlayer {
                         byte[] audioData = decoder.readChunk(BUFFER_SIZE);
                         if (audioData == null) break;
 
+                        // 验证音频数据有效性
+                        int format = decoder.getFormat();
+                        if (!isValidAudioData(audioData, format)) {
+                            LOGGER.warn("Invalid audio data detected, skipping buffer");
+                            continue;
+                        }
+
+                        if (audioData.length == 0) {
+                            LOGGER.warn("Empty audio data, skipping buffer");
+                            continue;
+                        }
+
                         ByteBuffer directBuffer = ByteBuffer.allocateDirect(audioData.length);
                         directBuffer.put(audioData);
                         directBuffer.flip();
 
-                        AL10.alBufferData(buffers[i], decoder.getFormat(), directBuffer, decoder.getSampleRate());
+                        AL10.alBufferData(buffers[i], format, directBuffer, decoder.getSampleRate());
                         checkALError("alBufferData");
                         AL10.alSourceQueueBuffers(source, buffers[i]);
                         checkALError("alSourceQueueBuffers");
-                        buffersQueued++;
-                    }
-                }
-
-                if (buffersQueued > 0) {
-                    synchronized (StreamAudioPlayer.class) {
-                        if (initialized.get() && source != 0) {
-                            AL10.alSourcePlay(source);
-                            checkALError("alSourcePlay");
-                            startPlayingTime = startTime == null ? LocalDateTime.now() : startTime;
-                            future.complete(startPlayingTime);
-                        }
                     }
                 }
 
@@ -178,6 +192,7 @@ public class StreamAudioPlayer {
                             int processed = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
                             checkALError("alGetSourcei");
 
+                            future.complete(startTime == null ? LocalDateTime.now() : startTime);
                             while (processed-- > 0 && playing.get()) {
                                 int[] buffer = new int[1];
                                 AL10.alSourceUnqueueBuffers(source, buffer);
@@ -214,10 +229,10 @@ public class StreamAudioPlayer {
                     } catch (Exception e) {
                         // 网络异常处理
                         LOGGER.error("Playback error: " + e.getMessage());
+                        cleanup();
 
                         if (retryCount < maxRetries && playing.get()) {
                             reconnecting.set(true);
-                            cleanup();
 
                             // 延迟重连
                             try {
@@ -248,14 +263,22 @@ public class StreamAudioPlayer {
         return future;
     }
 
-    private static AudioDecoder getAudioDecoder(String urlString, FormatType formatType) throws URISyntaxException, IOException {
-        URL url = new URI(urlString).toURL();
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(10000);
-        InputStream inputStream = connection.getInputStream();
+    private byte[] convert8BitTo16Bit(byte[] audioData) {
+        if (audioData == null) return null;
 
-        return formatType.newDecoder(inputStream);
+        short[] samples = new short[audioData.length];
+        for (int i = 0; i < audioData.length; i++) {
+            // 将8位无符号转换为16位有符号
+            samples[i] = (short) (((audioData[i] & 0xFF) - 128) * 256);
+        }
+
+        // 转换回字节数组（16位）
+        ByteBuffer buffer = ByteBuffer.allocate(samples.length * 2);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        for (short sample : samples) {
+            buffer.putShort(sample);
+        }
+        return buffer.array();
     }
 
     // 跳过音频样本
@@ -287,13 +310,90 @@ public class StreamAudioPlayer {
         if (playingThread != null) {
             playingThread.interrupt();
         }
-        Thread.sleep(100);
         lastVolume = 1;
         playing.set(false);
         cleanup();
     }
 
+    private boolean isValidAudioData(byte[] audioData, int format) {
+        if (audioData == null || audioData.length == 0) {
+            return false;
+        }
+
+        // 检查数据长度是否符合格式要求
+        int bytesPerSample = (format == AL10.AL_FORMAT_STEREO16 ? 4 : 2);
+        if (audioData.length % bytesPerSample != 0) {
+            LOGGER.warn("Audio data length {} not aligned to sample size {}", audioData.length, bytesPerSample);
+            return false;
+        }
+
+        return true;
+    }
+
     private void cleanup() {
+        synchronized (StreamAudioPlayer.class) {
+            try {
+                if (source != 0 && AL10.alIsSource(source)) {
+                    // 强制停止并清理所有缓冲区
+                    AL10.alSourceStop(source);
+                    checkALError("alSourceStop");
+
+
+                    int processed = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
+                    while (processed-- > 0) {
+                        int[] buffer = new int[1];
+                        AL10.alSourceUnqueueBuffers(source, buffer);
+                        checkALError("alSourceUnqueueBuffers");
+                    }
+
+                    // 清空所有排队的缓冲区
+                    int queued = AL10.alGetSourcei(source, AL10.AL_BUFFERS_QUEUED);
+                    if (queued > 0) {
+                        AL10.alSourcei(source, AL10.AL_BUFFER, 0); // 清空源的所有缓冲区
+                        checkALError("alSourceUnqueueBuffers");
+                    }
+
+                    AL10.alDeleteSources(source);
+                    checkALError("alDeleteSources");
+                    source = 0;
+                }
+
+                // 彻底清理所有缓冲区
+                for (int i = 0; i < buffers.length; i++) {
+                    if (buffers[i] != 0 && AL10.alIsBuffer(buffers[i])) {
+                        AL10.alDeleteBuffers(buffers[i]);
+                        checkALError("alDeleteBuffers");
+                        buffers[i] = 0;
+                    }
+                }
+
+                initialized.set(false);
+                lastVolume = 1;
+            } catch (Exception e) {
+                LOGGER.error("Cleanup error", e);
+            }
+        }
+    }
+
+    private void validateAudioFormat(AudioDecoder decoder) {
+        int format = decoder.getFormat();
+        int sampleRate = decoder.getSampleRate();
+
+        // 验证格式是否受支持
+        if (format != AL10.AL_FORMAT_STEREO16 && format != AL10.AL_FORMAT_MONO16) {
+//        if (format != AL10.AL_FORMAT_STEREO16 &&
+//                format != AL10.AL_FORMAT_MONO16 &&
+//                format != AL10.AL_FORMAT_STEREO8 &&
+//                format != AL10.AL_FORMAT_MONO8) {
+            LOGGER.warn("Unsupported audio format: {}, may cause noise", format);
+        }
+
+        // 验证采样率是否合理
+        if (sampleRate < 8000 || sampleRate > 96000) {
+            LOGGER.warn("Unusual sample rate: {}, may cause playback issues", sampleRate);
+        }
+    }
+    /*private void cleanup() {
         synchronized (StreamAudioPlayer.class) {
             try {
                 if (source != 0 && AL10.alIsSource(source)) {
@@ -314,7 +414,7 @@ public class StreamAudioPlayer {
                 LOGGER.error("Cleanup error", e);
             }
         }
-    }
+    }*/
 
     public boolean isPlaying() {
         return playing.get();
