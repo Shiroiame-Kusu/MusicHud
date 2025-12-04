@@ -23,11 +23,14 @@ public record ConnectRequest(Version clientVersion) implements C2SPayload {
             NetworkRegisterUtil.autoRegisterPayload(
                     ConnectRequest.class, CODEC,
                     ServerDataPacketVThreadExecutor.execute((startQRLoginRequest, serverPlayer) -> {
-                        ConnectResponse response = new ConnectResponse(Version.capableWith(startQRLoginRequest.clientVersion()), Version.current);
+                        boolean capable = Version.capableWith(startQRLoginRequest.clientVersion());
+                        ConnectResponse response = new ConnectResponse(capable, Version.current);
                         NetworkManager.sendToPlayer(serverPlayer, response);
-                        LoginApiService instance = LoginApiService.getInstance();
-                        instance.joinUnlogged(serverPlayer);
-                        MusicPlayerServerService.getInstance().sendSyncPlayingStatusToPlayer(serverPlayer);
+                        if (capable) {
+                            LoginApiService instance = LoginApiService.getInstance();
+                            instance.joinUnlogged(serverPlayer);
+                            MusicPlayerServerService.getInstance().sendSyncPlayingStatusToPlayer(serverPlayer);
+                        }
                     })
             );
         }

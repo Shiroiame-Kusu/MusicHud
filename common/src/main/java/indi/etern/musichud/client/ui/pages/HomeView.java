@@ -13,15 +13,15 @@ import icyllis.modernui.widget.TextView;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.LyricLine;
 import indi.etern.musichud.beans.music.MusicDetail;
-import indi.etern.musichud.beans.user.Profile;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
-import indi.etern.musichud.client.musicPlayer.NowPlayingInfo;
+import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.services.MusicService;
 import indi.etern.musichud.client.ui.Theme;
 import indi.etern.musichud.client.ui.components.MusicListItem;
 import indi.etern.musichud.client.ui.utils.ButtonInsetBackground;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -175,7 +175,7 @@ public class HomeView extends LinearLayout {
         layoutParams.setMargins(0, 0, 0, dp(16));
         LinearLayout actions = new LinearLayout(getContext());
 
-        if (Profile.getCurrent() != null && musicDetail.getPusherInfo().uid() == Profile.getCurrent().getUserId()) {
+        if (musicDetail.getPusherInfo().playerUUID().equals(Minecraft.getInstance().player.getUUID())) {
             Button removeButton = new Button(getContext());
             removeButton.setText("移除");
             removeButton.setTextSize(dp(8));

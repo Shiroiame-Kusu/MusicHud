@@ -1,4 +1,4 @@
-package indi.etern.musichud.utils.music;
+package indi.etern.musichud.client.music.decoder;
 
 import indi.etern.musichud.beans.music.FormatType;
 
@@ -8,8 +8,6 @@ import java.io.InputStream;
 public class AudioFormatDetector {
     private static final byte[] ID3_HEADER = {0x49, 0x44, 0x33}; // "ID3"
     private static final byte[] FLAC_HEADER = {0x66, 0x4C, 0x61, 0x43}; // "fLaC"
-    private static final byte[] RIFF_HEADER = {0x52, 0x49, 0x46, 0x46}; // "RIFF"
-    private static final byte[] WAVE_HEADER = {0x57, 0x41, 0x56, 0x45}; // "WAVE"
 
     public static FormatType detectFormat(InputStream inputStream) throws IOException {
         if (!inputStream.markSupported()) {
@@ -36,16 +34,6 @@ public class AudioFormatDetector {
                 header[2] == ID3_HEADER[2]) {
             return FormatType.MP3;
         }
-
-/*
-        // 检测WAV格式
-        if (header[0] == RIFF_HEADER[0] && header[1] == RIFF_HEADER[1] &&
-                header[2] == RIFF_HEADER[2] && header[3] == RIFF_HEADER[3] &&
-                header[8] == WAVE_HEADER[0] && header[9] == WAVE_HEADER[1] &&
-                header[10] == WAVE_HEADER[2] && header[11] == WAVE_HEADER[3]) {
-            return FormatType.UNSET;
-        }
-*/
 
         // 如果没有ID3标签，尝试检测MP3帧头（更复杂的检测）
         if (detectMP3FrameHeader(header, bytesRead)) {

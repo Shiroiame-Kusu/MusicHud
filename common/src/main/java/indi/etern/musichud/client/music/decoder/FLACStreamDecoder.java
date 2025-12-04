@@ -1,26 +1,24 @@
-package indi.etern.musichud.utils.music;
+package indi.etern.musichud.client.music.decoder;
 
+import lombok.SneakyThrows;
 import org.jflac.FLACDecoder;
 import org.jflac.frame.Frame;
 import org.jflac.metadata.StreamInfo;
 import org.jflac.util.ByteData;
 import org.lwjgl.openal.AL10;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class FLACStreamDecoder implements AudioDecoder {
     private final FLACDecoder decoder;
-    private final InputStream inputStream;
+    private final BufferedInputStream inputStream;
     private final int format;
     private final int sampleRate;
     private boolean convert24bitsTo16bits = false;
 
-    public FLACStreamDecoder(InputStream inputStream) throws IOException {
+    public FLACStreamDecoder(BufferedInputStream inputStream) throws IOException {
         this.inputStream = inputStream;
         this.decoder = new FLACDecoder(inputStream);
 
@@ -35,7 +33,7 @@ public class FLACStreamDecoder implements AudioDecoder {
             if (channels == 1) {
                 if (bitsPerSample == 16) {
                     this.format = AL10.AL_FORMAT_MONO16;
-                } else if (bitsPerSample == 8){
+                } else if (bitsPerSample == 8) {
                     this.format = AL10.AL_FORMAT_MONO8;
                 } else if (bitsPerSample == 24) {
                     convert24bitsTo16bits = true;
@@ -43,10 +41,10 @@ public class FLACStreamDecoder implements AudioDecoder {
                 } else {
                     throw new UnsupportedEncodingException("bits per sample is not 8/16/24");
                 }
-            } else if (channels == 2){
+            } else if (channels == 2) {
                 if (bitsPerSample == 16) {
                     this.format = AL10.AL_FORMAT_STEREO16;
-                } else if (bitsPerSample == 8){
+                } else if (bitsPerSample == 8) {
                     this.format = AL10.AL_FORMAT_STEREO8;
                 } else if (bitsPerSample == 24) {
                     convert24bitsTo16bits = true;
@@ -63,30 +61,29 @@ public class FLACStreamDecoder implements AudioDecoder {
     }
 
     @Override
+    @SneakyThrows
     public byte[] readChunk(int maxSize) {
-        try {
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-            while (output.size() < maxSize) {
-                Frame frame = decoder.readNextFrame();
-                if (frame == null) break;
+        while (output.size() < maxSize) {
+            Frame frame = decoder.readNextFrame();
+            if (frame == null)
+                break;
 
-                ByteData byteData = decoder.decodeFrame(frame, null);
-                if (byteData == null) break;
+            ByteData byteData = decoder.decodeFrame(frame, null);
+            if (byteData == null)
+                break;
 
-                byte[] frameData = byteData.getData();
-                output.write(frameData, 0, byteData.getLen());
-            }
-
-            if (output.size() == 0) return null;
-            byte[] result = output.toByteArray();
-            if (convert24bitsTo16bits) {
-                result = convert24BitTo16Bit(result);
-            }
-            return result;
-        } catch (Exception e) {
-            return null;
+            byte[] frameData = byteData.getData();
+            output.write(frameData, 0, byteData.getLen());
         }
+
+        if (output.size() == 0) return null;
+        byte[] result = output.toByteArray();
+        if (convert24bitsTo16bits) {
+            result = convert24BitTo16Bit(result);
+        }
+        return result;
     }
 
     private byte[] convert24BitTo16Bit(byte[] audioData) {

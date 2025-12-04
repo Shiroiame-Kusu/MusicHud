@@ -6,17 +6,11 @@ import net.minecraft.network.codec.StreamCodec;
 import org.jetbrains.annotations.NotNull;
 
 public record Version(long mayor, long minor, long patch, BuildType build) implements Comparable<Version>{
-//    public static final Codec<Version> CODEC;
     public static final StreamCodec<? super RegistryFriendlyByteBuf, Version> PACKET_CODEC;
-    public static Version current = new Version(1,0,0, BuildType.Alpha);
+    public static Version current = new Version(1,0,0, BuildType.Beta);
     public static Version leastCapable = new Version(1,0,0,BuildType.Alpha);
 
     static {
-        /*CODEC = Codec.LONG_STREAM.comapFlatMap(
-                (stream) -> Util.fixedSize(stream, 4).map(
-                        (values) -> new Version(values[0], values[1], values[2], Version.BuildType.ofOrdinal((int) values[3]))),
-                        (version) -> LongStream.of(version.mayor, version.minor, version.patch, version.build.ordinal())).stable();
-        */
         PACKET_CODEC = new StreamCodec<ByteBuf, Version>() {
             public @NotNull Version decode(@NotNull ByteBuf byteBuf) {
                 return Version.ofLongArray(RegistryFriendlyByteBuf.readLongArray(byteBuf));

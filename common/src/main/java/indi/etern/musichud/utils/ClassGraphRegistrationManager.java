@@ -111,7 +111,7 @@ public class ClassGraphRegistrationManager {
                         }
                     }
                 });
-                MusicHud.LOGGER.info("Successfully loaded (ClassGraph): {}", clazz.getCanonicalName());
+                MusicHud.LOGGER.debug("Successfully loaded (ClassGraph): {}", clazz.getCanonicalName());
             } catch (Exception e) {
                 MusicHud.LOGGER.error("Failed to load: {}", classInfo.getName(), e);
             }

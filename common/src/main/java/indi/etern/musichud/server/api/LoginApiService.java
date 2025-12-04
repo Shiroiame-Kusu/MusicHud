@@ -112,7 +112,6 @@ public class LoginApiService {
             AccountDetail accountDetail = loadUserProfile(player, loginCookieInfo);
             NetworkManager.sendToPlayer(player, new LoginResultMessage(true, "warning: refresh cookie failed", loginCookieInfo, accountDetail.getProfile()));
             logger.warn("refresh for player \"{}\" failed, response code: {}", player.getName(), cookieResponse.code);
-//            sendLoginFailResult(player, new RuntimeException("refresh failed: " + cookieResponse.code));
         }
     }
 

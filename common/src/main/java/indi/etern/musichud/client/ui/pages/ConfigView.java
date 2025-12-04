@@ -8,7 +8,7 @@ import icyllis.modernui.view.View;
 import icyllis.modernui.widget.FrameLayout;
 import icyllis.modernui.widget.LinearLayout;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
-import indi.etern.musichud.client.musicPlayer.NowPlayingInfo;
+import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.services.LoginService;
 import indi.etern.musichud.client.services.MusicService;
 import indi.etern.musichud.client.ui.components.DynamicIntegerOption;
@@ -16,7 +16,7 @@ import indi.etern.musichud.client.ui.hud.HudRendererManager;
 import indi.etern.musichud.client.ui.hud.metadata.HPosition;
 import indi.etern.musichud.client.ui.hud.metadata.VPosition;
 import indi.etern.musichud.client.ui.screen.MainFragment;
-import indi.etern.musichud.utils.music.StreamAudioPlayer;
+import indi.etern.musichud.client.music.StreamAudioPlayer;
 import lombok.Getter;
 import net.minecraft.Util;
 
@@ -137,7 +137,7 @@ public class ConfigView extends LinearLayout {
                         hudRendererManager.updateLayoutFromConfig();
                         hudRendererManager.refreshStyle();
                     });
-            widthOption.setRange(0, 256, 4);
+            widthOption.setRange(ClientConfigDefinition.hudHeight.get(), 256, 4);
             widthOption.setDefaultValue(150);
             PreferencesFragment.IntegerOption heightOption = new PreferencesFragment.IntegerOption(
                     context,

@@ -3,10 +3,9 @@ package indi.etern.musichud.client.ui.hud;
 import com.mojang.blaze3d.systems.RenderPass;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.Artist;
-import indi.etern.musichud.beans.music.LyricLine;
 import indi.etern.musichud.beans.music.MusicDetail;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
-import indi.etern.musichud.client.musicPlayer.NowPlayingInfo;
+import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.ui.Theme;
 import indi.etern.musichud.client.ui.hud.metadata.*;
 import indi.etern.musichud.client.ui.hud.renderer.*;
@@ -14,6 +13,7 @@ import indi.etern.musichud.client.ui.utils.TransitionStatus;
 import indi.etern.musichud.client.ui.utils.image.ImageBlurPostProcessor;
 import indi.etern.musichud.client.ui.utils.image.ImageTextureData;
 import indi.etern.musichud.client.ui.utils.image.ImageUtils;
+import indi.etern.musichud.client.music.StreamAudioPlayer;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.DeltaTracker;
@@ -24,9 +24,12 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
-import java.util.Queue;
 
 public class HudRendererManager {
+    private static final String idleText = "暂无播放音乐";
+    private static final String retryingAppendText = " (重试中)";
+    private static final String errorAppendText = " (播放出错)";
+    private static final String bufferingAppendText = " (缓冲中)";
     private static volatile HudRendererManager instance;
     @Getter
     private static volatile boolean loaded;
@@ -70,12 +73,37 @@ public class HudRendererManager {
                     instance.updateLayoutFromConfig();
                     instance.refreshStyle();
 
-                    instance.TITLE_RENDERER.setText("暂无播放音乐");
+                    updateStatus(StreamAudioPlayer.Status.IDLE);
+                    StreamAudioPlayer.getInstance().getStatusChangeListener().add(HudRendererManager::updateStatus);
                     loaded = true;
                 }
             }
         }
         return instance;
+    }
+
+    private static void updateStatus(StreamAudioPlayer.Status c) {//TODO test
+        if (instance != null) {
+            TextRenderer.TextStyle currentTextData = instance.TITLE_RENDERER.getCurrentTextData();
+            String currentText = currentTextData == null ? "" : currentTextData.text;
+            if (!idleText.equals(currentText)) {
+                String s = currentText.replace(errorAppendText, "").replace(retryingAppendText, "").replace(bufferingAppendText, "");
+                switch (c) {
+                    case ERROR -> {
+                        instance.TITLE_RENDERER.setText(s + errorAppendText);
+                    }
+                    case BUFFERING -> {
+                        instance.TITLE_RENDERER.setText(s + bufferingAppendText);
+                    }
+                    case RETRYING -> {
+                        instance.TITLE_RENDERER.setText(s + retryingAppendText);
+                    }
+                    case PLAYING -> {
+                        instance.TITLE_RENDERER.setText(s);
+                    }
+                }
+            }
+        }
     }
 
     public void updateLayoutFromConfig() {
@@ -110,11 +138,11 @@ public class HudRendererManager {
 
         configureImageRenderer(imageLayout, bgImage);
 
-        float progressWidth = baseLayout.width - imageHeightAndWidth - 3 * padding - baseLayout.radius / 2;
+        float progressWidth = baseLayout.width - imageHeightAndWidth - 3 * padding - baseLayout.radius / 3;
         float progressHeight = 2;
         float progressX = padding + imageHeightAndWidth + padding;
         float progressY = padding + imageHeightAndWidth - progressHeight - 1;
-        float progressRadius = Math.min(Math.max(0, baseLayout.radius - padding), progressHeight / 2);
+        float progressRadius = progressHeight / 2;
         Layout progressLayout = new Layout(progressX, progressY, progressWidth, progressHeight, progressRadius);
         progressLayout.setParent(baseLayout);
 
@@ -122,7 +150,7 @@ public class HudRendererManager {
 
         float headSize = 8f;
         float headX = Math.max(progressX + progressWidth - headSize, imageHeightAndWidth + padding - headSize);
-        float headY = padding + 2f;
+        float headY = padding + 1f;
 
         Layout layout1 = new Layout(headX, headY, headSize, headSize, 0f);
         layout1.setParent(baseLayout);
@@ -133,7 +161,8 @@ public class HudRendererManager {
         float rest = baseLayout.height - padding * 2 - titleSize - progressHeight - normalTextSize - 2;
         float lyricsSize = rest <= 8f ? 0 : 6f;
         float subLyricsSize = rest <= 14f ? 0 : 5f;
-        float lyricsY = padding + 10f;
+//        float lyricsY = padding + 10f;
+        float lyricsY = padding + 10f + Math.max(0, (rest - lyricsSize - subLyricsSize - 7) / 2);
         float textStartX = progressX;
         float titleY = padding + 1f;
         float aboveProgressY = progressY - normalTextSize - 1f;

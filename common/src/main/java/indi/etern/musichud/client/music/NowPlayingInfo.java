@@ -1,4 +1,4 @@
-package indi.etern.musichud.client.musicPlayer;
+package indi.etern.musichud.client.music;
 
 import icyllis.modernui.mc.MuiModApi;
 import indi.etern.musichud.MusicHud;

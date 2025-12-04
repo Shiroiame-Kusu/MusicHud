@@ -14,7 +14,7 @@ import icyllis.modernui.widget.*;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.*;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
-import indi.etern.musichud.client.musicPlayer.NowPlayingInfo;
+import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.ui.Theme;
 import indi.etern.musichud.client.ui.components.RouterContainer;
 import indi.etern.musichud.client.ui.components.SideMenu;
