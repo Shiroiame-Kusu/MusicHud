@@ -1,5 +1,6 @@
 package indi.etern.musichud.client.ui.hud.renderer;
 
+import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.ui.hud.metadata.Layout;
 import lombok.Getter;
 import lombok.Setter;

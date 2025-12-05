@@ -2,12 +2,12 @@ package indi.etern.musichud.beans.music;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import indi.etern.musichud.client.music.decoder.AudioDecoder;
+import indi.etern.musichud.client.music.decoder.AudioFormatDetector;
 import indi.etern.musichud.client.music.decoder.FLACStreamDecoder;
 import indi.etern.musichud.client.music.decoder.MP3StreamDecoder;
 import lombok.SneakyThrows;
 
 import java.io.BufferedInputStream;
-import java.io.InputStream;
 import java.util.Arrays;
 
 public enum FormatType {
@@ -24,10 +24,11 @@ public enum FormatType {
             return new MP3StreamDecoder(inputStream);
         }
     },
-    UNSET {
+    AUTO {
         @Override
+        @SneakyThrows
         public AudioDecoder newDecoder(BufferedInputStream inputStream) {
-            throw new UnsupportedOperationException();
+            return AudioFormatDetector.detectFormat(inputStream).newDecoder(inputStream);
         }
     };
     @JsonCreator

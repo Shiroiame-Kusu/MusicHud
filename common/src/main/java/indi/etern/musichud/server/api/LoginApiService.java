@@ -81,7 +81,6 @@ public class LoginApiService {
             logger.warn("Polling v-thread stopped as player {} quit", player.getName());
         }
         MusicPlayerServerService.getInstance().idlePlaySources.remove(player);
-        loginAsAnonymous(player, false);
     }
 
     @SneakyThrows

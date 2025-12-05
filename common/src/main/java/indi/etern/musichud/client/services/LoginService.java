@@ -132,7 +132,11 @@ public class LoginService {
             LoginCookieInfo.refreshIfNecessaryAndRegisterToServer();
         } else {
             logger.info("No previous cookie found, login as anonymous");
-            NetworkManager.sendToServer(AnonymousLoginRequest.REQUEST);
+            loginAsAnonymousToServer();
         }
+    }
+
+    public void loginAsAnonymousToServer() {
+        NetworkManager.sendToServer(AnonymousLoginRequest.REQUEST);
     }
 }

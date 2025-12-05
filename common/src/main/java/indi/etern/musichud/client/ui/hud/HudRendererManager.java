@@ -251,6 +251,8 @@ public class HudRendererManager {
             ARTISTS_AND_ALBUM_RENDERER.setText(artists + " - " + musicDetail.getAlbum().getName());
             LYRICS_RENDERER.setText("");
             SUB_LYRICS_RENDERER.setText("");
+            PlayerInfo pusherPlayerInfo = this.nowPlayingInfo.getPusherPlayerInfo();
+            PLAYER_HEAD_RENDERER.setPlayerInfo(pusherPlayerInfo);
             ImageUtils.downloadAsync(musicDetail.getAlbum().getPicUrl())
                     .thenAccept(imageTextureData -> {
                         imageTextureData.register().thenAcceptAsync((v) -> {
@@ -273,6 +275,8 @@ public class HudRendererManager {
         ARTISTS_AND_ALBUM_RENDERER.setText("");
         LYRICS_RENDERER.setText("");
         SUB_LYRICS_RENDERER.setText("");
+        PLAY_TIME_RENDERER.setText("");
+        PLAYER_HEAD_RENDERER.setPlayerInfo(null);
         var nextData = new TransitionNextData(null, null, 1f);
         TransitionStatus<TransitionNextData> transitionStatus = HudRenderData.getTransitionStatus();
         transitionStatus.startTransition(nextData);
@@ -306,9 +310,6 @@ public class HudRendererManager {
             );
             PLAY_TIME_RENDERER.setText(playTimeString);
         }
-
-        PlayerInfo pusherPlayerInfo = this.nowPlayingInfo.getPusherPlayerInfo();
-        PLAYER_HEAD_RENDERER.setPlayerInfo(pusherPlayerInfo);
 
         HUD_RENDERER.render(graphics, deltaTracker);
         IMAGE_RENDERER.render(graphics, deltaTracker);

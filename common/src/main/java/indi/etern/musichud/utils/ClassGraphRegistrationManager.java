@@ -63,7 +63,7 @@ public class ClassGraphRegistrationManager {
                         // 调用 register 方法
                         instance.register();
                         registeredSet.add(classInfo);
-                        MusicHud.LOGGER.info("Successfully registered (ClassGraph): {}", getClassName(clazz));
+                        MusicHud.LOGGER.debug("Successfully registered (ClassGraph): {}", getClassName(clazz));
                     }
                 } catch (Exception e) {
                     MusicHud.LOGGER.error("Failed to register: {}", classInfo.getName(), e);

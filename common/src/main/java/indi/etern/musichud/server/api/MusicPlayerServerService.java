@@ -133,10 +133,24 @@ public class MusicPlayerServerService {
                                         break;
                                     }
                                 } else {
-                                    logger.warn("Failed to get resource info for music ID: {}", nextToPlay.getId());
+                                    logger.error("Failed to get resource info for music: {} (ID: {}), switching next",
+                                            nextToPlay.getName(), nextToPlay.getId());
+                                    try {
+                                        Thread.sleep(1000);
+                                    } catch (InterruptedException ignored) {
+                                        break;
+                                    }
                                 }
                             } catch (Exception e) {
-                                logger.error("Failed to push music: {}", nextToPlay != null ? nextToPlay.getName() : "", e);
+                                logger.error("Failed to push music: {} (id: {})",
+                                        nextToPlay != null ? nextToPlay.getName() : "null",
+                                        nextToPlay != null ? nextToPlay.getId() : "-1",
+                                        e);
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException ignored) {
+                                    break;
+                                }
                             }
                         }
                         MusicPlayerServerService.this.stopSendingMusic();

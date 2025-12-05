@@ -12,18 +12,19 @@ import indi.etern.musichud.beans.music.Playlist;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
 import indi.etern.musichud.client.config.ProfileConfigData;
 import indi.etern.musichud.client.music.NowPlayingInfo;
+import indi.etern.musichud.client.music.StreamAudioPlayer;
 import indi.etern.musichud.client.ui.hud.HudRendererManager;
 import indi.etern.musichud.client.ui.utils.image.ImageUtils;
 import indi.etern.musichud.interfaces.ClientRegister;
 import indi.etern.musichud.interfaces.ForceLoad;
-import indi.etern.musichud.network.pushMessages.c2s.*;
+import indi.etern.musichud.network.pushMessages.c2s.AddPlaylistToIdlePlaySourceMessage;
+import indi.etern.musichud.network.pushMessages.c2s.ClientPushMusicToQueueMessage;
+import indi.etern.musichud.network.pushMessages.c2s.ClientRemoveMusicFromQueueMessage;
+import indi.etern.musichud.network.pushMessages.c2s.RemovePlaylistFromIdlePlaySourceMessage;
 import indi.etern.musichud.network.requestResponseCycle.GetPlaylistDetailRequest;
 import indi.etern.musichud.network.requestResponseCycle.GetPlaylistDetailResponse;
 import indi.etern.musichud.throwable.ApiException;
-import indi.etern.musichud.client.music.StreamAudioPlayer;
 import lombok.Getter;
-import net.minecraft.client.Minecraft;
-import net.minecraft.sounds.SoundSource;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
@@ -199,12 +200,10 @@ public class MusicService {
             if (!musicDetail.equals(MusicDetail.NONE)) {
                 loadResource(musicDetail);
                 StreamAudioPlayer streamAudioPlayer = StreamAudioPlayer.getInstance();
-                Minecraft.getInstance().getSoundManager().stop(null, SoundSource.MUSIC);
                 streamAudioPlayer.playAsyncFromUrl(resourceInfo.getUrl(), resourceInfo.getType(), serverStartTime).thenAccept(localDateTime -> {
                     NowPlayingInfo.getInstance().switchMusic(musicDetail, resourceInfo, localDateTime);
                 }).exceptionally(e -> {
-//                    NowPlayingInfo.getInstance().switchMusic(musicDetail, resourceInfo, localDateTime);
-                    return null;
+                    return null;//TODO display error in hud
                 });
             } else {
                 NowPlayingInfo.getInstance().switchMusic(MusicDetail.NONE, MusicResourceInfo.NONE, null);

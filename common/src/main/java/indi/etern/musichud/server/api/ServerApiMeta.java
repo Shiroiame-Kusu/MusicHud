@@ -210,11 +210,11 @@ public class ServerApiMeta {
                 Set.of("id"),
                 Set.of("br"/* 96000|128000|192000|256000|320000|999000 */),
                 false, false, String.class);
-        public static final UrlMeta<String> UNBLOCK = new UrlMeta<>(
+        public static final UrlMeta<MusicApiService.GetMatchResourceUrlResponse> UNBLOCK = new UrlMeta<>(
                 "/song/url/match",
                 Set.of("id"),
                 Set.of("source"/*pyncmd|bodian|kuwo|kugou|qq|migu*/),
-                false, false, String.class);
+                false, false, MusicApiService.GetMatchResourceUrlResponse.class);
         public static final UrlMeta<MusicDetailResponse> DETAIL = new UrlMeta<>(
                 "/song/detail",
                 Set.of("ids"),

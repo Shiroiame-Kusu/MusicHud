@@ -24,7 +24,8 @@ public class LogoutMessage implements C2SPayload {
             NetworkRegisterUtil.autoRegisterPayload(
                     LogoutMessage.class, CODEC,
                     ServerDataPacketVThreadExecutor.execute((message, player) -> {
-                        LoginApiService.getInstance().logout(player);
+                        LoginApiService loginApiService = LoginApiService.getInstance();
+                        loginApiService.logout(player);
                     })
             );
         }

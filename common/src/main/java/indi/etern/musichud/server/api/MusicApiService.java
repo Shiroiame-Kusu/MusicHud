@@ -137,9 +137,11 @@ public class MusicApiService {
     }
 
     record GetDirectResourceUrlRequest(long id, boolean unblock, Quality level) {}
+    record GetMatchResourceUrlRequest(long id, String source) {}
     public record GetDirectResourceUrlResponse(int code, List<MusicResourceInfo> data) {}
+    public record GetMatchResourceUrlResponse(int code, MusicResourceInfo data) {}
 
-    public MusicResourceInfo getResourceInfo(MusicDetail musicDetail/*, PrivilegeInfo privilegeInfo*/) {
+    public MusicResourceInfo getResourceInfo(MusicDetail musicDetail) {
         if (musicDetail == null || musicDetail.equals(MusicDetail.NONE)) {
             return MusicResourceInfo.NONE;
         } else {
@@ -149,19 +151,20 @@ public class MusicApiService {
                 MusicResourceInfo musicResourceInfo = response.data.getFirst();
                 // 30 seconds trial
                 if (musicResourceInfo.getTime() == 30040) {
-                    var unblockRequest = new GetDirectResourceUrlRequest(musicDetail.getId(), true, Quality.LOSSLESS);
-                    var unblockResponse = ApiClient.post(ServerApiMeta.Music.URL, unblockRequest, loginApiService.randomVipCookieOr(null));
-                    musicResourceInfo = unblockResponse.data.getFirst();
+                    var unblockRequest = new GetMatchResourceUrlRequest(musicDetail.getId(), "pyncmd,bodian");
+                    var unblockResponse = ApiClient.post(ServerApiMeta.Music.UNBLOCK, unblockRequest, loginApiService.randomVipCookieOr(null));
+                    musicResourceInfo = unblockResponse.data;
+                    musicResourceInfo.completeFrom(musicDetail);
                 }
                 try {
-                    LyricInfo lyricInfo = getLyricInfo(musicDetail.getId());
+                    LyricInfo lyricInfo = getLyricInfo(musicDetail);
                     musicResourceInfo.setLyricInfo(lyricInfo);
                 } catch (Exception e) {
-                    logger.warn("Failed to get lyric for music id: " + musicDetail.getId(), e);
+                    logger.warn("Failed to get lyric for music: {} (ID: {})", musicDetail.getName(), musicDetail.getId(), e);
                 }
                 return musicResourceInfo;
             } else {
-                logger.error("Failed to get lyric for music id: " + musicDetail.getId());
+                logger.error("Failed to get lyric for music: {} (ID: {})", musicDetail.getName(), musicDetail.getId());
                 return null;
             }
         }
@@ -182,13 +185,13 @@ public class MusicApiService {
         }
     }
 
-    public LyricInfo getLyricInfo(long musicId) {
+    public LyricInfo getLyricInfo(MusicDetail musicDetail) {
         try {
-            var response = ApiClient.post(ServerApiMeta.Music.LYRIC, new IdRequest(musicId), null);
+            var response = ApiClient.post(ServerApiMeta.Music.LYRIC, new IdRequest(musicDetail.getId()), null);
             if (response.getCode() == 200) {
                 return response;
             } else {
-                throw new RuntimeException("Failed to get lyric for music id: " + musicId);
+                throw new RuntimeException("Failed to get lyric for music: " + musicDetail.getName() + " (ID: " + musicDetail.getId() + ")");
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

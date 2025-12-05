@@ -154,6 +154,7 @@ public class AccountView extends LinearLayout {
             texts.addView(logoutButton, logoutButtonParam);
             logoutButton.setOnClickListener(b -> {
                 LoginService.getInstance().logout();
+                LoginService.getInstance().loginAsAnonymousToServer();
             });
 
             LayoutParams topPanelLayoutParams = new LayoutParams(MATCH_PARENT, WRAP_CONTENT);
@@ -230,9 +231,11 @@ public class AccountView extends LinearLayout {
 
             Consumer<Playlist> addListener = playlist -> {
                 MuiModApi.postToUiThread(() -> {
-                    PlaylistCard child = new PlaylistCard(context, playlist);
-                    idlePlaylistCardsList.addView(child);
-                    idlePlaylistCardMap.put(playlist, child);
+                    if (context != null) {
+                        PlaylistCard child = new PlaylistCard(context, playlist);
+                        idlePlaylistCardsList.addView(child);
+                        idlePlaylistCardMap.put(playlist, child);
+                    }
                 });
             };
             Consumer<Playlist> removeListener = playlist -> {

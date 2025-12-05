@@ -159,6 +159,14 @@ public class NowPlayingInfo {
         }
     }
 
+    public boolean isCompleted() {
+        if (musicStartTime == null) {
+            return true;
+        }
+        Duration startedPlayingDuration = Duration.between(musicStartTime, LocalDateTime.now());
+        return startedPlayingDuration.compareTo(musicDuration) > 0;
+    }
+
     public PlayerInfo getPusherPlayerInfo() {//TODO
         Minecraft minecraft = Minecraft.getInstance();
         ClientPacketListener connection = minecraft.getConnection();

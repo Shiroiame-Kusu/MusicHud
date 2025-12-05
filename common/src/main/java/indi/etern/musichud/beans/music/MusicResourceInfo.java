@@ -38,11 +38,18 @@ public class MusicResourceInfo {
     @JsonProperty("br")
     int bitrate;
     long size;//byte
-    FormatType type = FormatType.UNSET;
+    FormatType type = FormatType.AUTO;
     String md5 = "";
     Fee fee = Fee.UNSET;
-    int time;//TODO
+    int time;
     // Not contained in the original API response, set separately
     @Setter
     LyricInfo lyricInfo = LyricInfo.NONE;
+
+    public void completeFrom(MusicDetail musicDetail) {
+        id = musicDetail.getId();
+        if (md5 == null)
+            md5 = "";
+        time = musicDetail.getDurationMillis();
+    }
 }
