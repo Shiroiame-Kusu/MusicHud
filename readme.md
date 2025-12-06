@@ -1,7 +1,7 @@
 # Music Hud
 ![Static Badge](https://img.shields.io/badge/Java-21-red?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Minecraft-1.21.8-blue?style=for-the-badge)
-![Static Badge](https://img.shields.io/badge/Version-1.0.0_beta-cyan?style=for-the-badge)
+![Static Badge](https://img.shields.io/badge/Version-1.0.prerelease-cyan?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Platform-Fabric-green?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Platform-Neoforge-orange?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/License-LGPLv3-brightgreen?style=for-the-badge)
