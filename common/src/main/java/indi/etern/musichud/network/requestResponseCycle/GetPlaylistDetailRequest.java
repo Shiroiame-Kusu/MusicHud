@@ -26,7 +26,9 @@ public record GetPlaylistDetailRequest(long id) implements C2SPayload {
                     GetPlaylistDetailRequest.class, CODEC,
                     ServerDataPacketVThreadExecutor.execute((playlistDetailRequest, player) -> {
                         Playlist playlistDetail = MusicApiService.getInstance().getPlaylistDetail(playlistDetailRequest.id, player);
-                        NetworkManager.sendToPlayer(player,new GetPlaylistDetailResponse(playlistDetail));
+                        if (playlistDetail != null) {
+                            NetworkManager.sendToPlayer(player,new GetPlaylistDetailResponse(playlistDetail));
+                        }
                     })
             );
         }

@@ -1,5 +1,6 @@
 package indi.etern.musichud.utils.http;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import indi.etern.musichud.MusicHud;
@@ -19,6 +20,10 @@ import java.util.concurrent.Executors;
 
 public class ApiClient {
     public static final HttpClient CLIENT;
+    private static final int maxTrial = 5;
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record CodeOnlyResponse(int code) {}
 
     static {
         CLIENT = HttpClient.newBuilder()
@@ -30,80 +35,102 @@ public class ApiClient {
 
     @SneakyThrows
     public static <T> T post(ServerApiMeta.UrlMeta<T> urlMeta, Object requestBody, String formattedUserCookie) {
-        try {
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                    .uri(urlMeta.toURI())
-                    .setHeader("Content-Type", "application/json");
-            if (requestBody != null) {
-                JsonNode payload = requestBody instanceof JsonNode element ? element : JsonUtil.objectMapper.valueToTree(requestBody);
-                if (payload instanceof ObjectNode objectNode) {
+        T t = null;
+        int trial = 0;
+        while (t == null && trial++ < maxTrial) {
+            try {
+                if (trial != 1) {
+                    Thread.sleep(500);
+                }
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                        .uri(urlMeta.toURI())
+                        .setHeader("Content-Type", "application/json");
+                if (requestBody != null) {
+                    JsonNode payload = requestBody instanceof JsonNode element ? element : JsonUtil.objectMapper.valueToTree(requestBody);
+                    if (payload instanceof ObjectNode objectNode) {
+                        if (formattedUserCookie != null && !formattedUserCookie.isEmpty()) {
+                            for (String cookieItem : formattedUserCookie.split(";;")) {
+                                requestBuilder.header("Cookie", cookieItem);
+                            }
+                        } else {
+                            objectNode.put("noCookie", true);
+                        }
+                        requestBuilder.POST(HttpRequest.BodyPublishers.ofString(
+                                        payload.toString(),
+                                        StandardCharsets.UTF_8
+                                )
+                        );
+                    } else {
+                        throw new IllegalStateException();
+                    }
+                } else {
                     if (formattedUserCookie != null && !formattedUserCookie.isEmpty()) {
                         for (String cookieItem : formattedUserCookie.split(";;")) {
                             requestBuilder.header("Cookie", cookieItem);
                         }
-                    } else {
-                        objectNode.put("noCookie", true);
                     }
-                    requestBuilder.POST(HttpRequest.BodyPublishers.ofString(
-                                    payload.toString(),
-                                    StandardCharsets.UTF_8
-                            )
-                    );
-                } else {
-                    throw new IllegalStateException();
+                    requestBuilder.POST(HttpRequest.BodyPublishers.noBody());
                 }
-            } else {
+                HttpRequest request = requestBuilder
+                        .build();
+                try {
+                    HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    String string = response.body().toString();
+                    var codeOnlyResponse = JsonUtil.objectMapper.readValue(string, CodeOnlyResponse.class);
+                    if (codeOnlyResponse.code == 200 || trial == maxTrial) {
+                        t = JsonUtil.objectMapper.readValue(string, urlMeta.responseType());
+                    }
+                } catch (ConnectException e) {
+                    MusicHud.getLogger(ApiClient.class).error("请检查 API 服务器状态");
+                    throw e;
+                }
+            } catch (ConnectException e) {
+                throw new ApiException(e);
+            }
+        }
+        if (t instanceof PostProcessable postProcessable) {
+            postProcessable.postProcess();
+        }
+        return t;
+    }
+
+    @SneakyThrows
+    public static <T> T get(ServerApiMeta.UrlMeta<T> urlMeta, String formattedUserCookie) {
+        T t = null;
+        int trial = 0;
+        while (t == null && trial++ < maxTrial) {
+            try {
+                if (trial != 1) {
+                    Thread.sleep(500);
+                }
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                        .uri(urlMeta.toURI());
                 if (formattedUserCookie != null && !formattedUserCookie.isEmpty()) {
                     for (String cookieItem : formattedUserCookie.split(";;")) {
                         requestBuilder.header("Cookie", cookieItem);
                     }
                 }
-                requestBuilder.POST(HttpRequest.BodyPublishers.noBody());
-            }
-            HttpRequest request = requestBuilder
-                    .build();
-            try {
-                HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                T t = JsonUtil.objectMapper.readValue(response.body().toString(), urlMeta.responseType());
-                if (t instanceof PostProcessable postProcessable) {
-                    postProcessable.postProcess();
+                HttpRequest request = requestBuilder
+                        .GET()
+                        .build();
+                try {
+                    HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    String string = response.body().toString();
+                    var codeOnlyResponse = JsonUtil.objectMapper.readValue(string, CodeOnlyResponse.class);
+                    if (codeOnlyResponse.code == 200 || trial == maxTrial) {
+                        t = JsonUtil.objectMapper.readValue(string, urlMeta.responseType());
+                    }
+                } catch (ConnectException e) {
+                    MusicHud.getLogger(ApiClient.class).error("请检查 API 服务器状态");
+                    throw e;
                 }
-                return t;
             } catch (ConnectException e) {
-                MusicHud.getLogger(ApiClient.class).error("请检查 API 服务器状态");
-                throw e;
+                throw new ApiException(e);
             }
-        } catch (ConnectException e) {
-            throw new ApiException(e);
         }
-    }
-
-    @SneakyThrows
-    public static <T> T get(ServerApiMeta.UrlMeta<T> urlMeta, String formattedUserCookie) {
-        try {
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                    .uri(urlMeta.toURI());
-            if (formattedUserCookie != null && !formattedUserCookie.isEmpty()) {
-                for (String cookieItem : formattedUserCookie.split(";;")) {
-                    requestBuilder.header("Cookie", cookieItem);
-                }
-            }
-            HttpRequest request = requestBuilder
-                    .GET()
-                    .build();
-            try {
-                HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                T t = JsonUtil.objectMapper.readValue(response.body().toString(), urlMeta.responseType());
-                if (t instanceof PostProcessable postProcessable) {
-                    postProcessable.postProcess();
-                }
-                return t;
-            } catch (ConnectException e) {
-                MusicHud.getLogger(ApiClient.class).error("请检查 API 服务器状态");
-                throw e;
-            }
-        } catch (ConnectException e) {
-            throw new ApiException(e);
+        if (t instanceof PostProcessable postProcessable) {
+            postProcessable.postProcess();
         }
+        return t;
     }
 }

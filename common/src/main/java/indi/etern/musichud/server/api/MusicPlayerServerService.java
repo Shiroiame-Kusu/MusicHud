@@ -21,6 +21,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class MusicPlayerServerService {
     private static volatile MusicPlayerServerService instance;
@@ -34,7 +35,6 @@ public class MusicPlayerServerService {
     private int musicIntervalMillis = 1000;
     @Getter
     private volatile MusicDetail currentMusicDetail = MusicDetail.NONE;
-    private volatile MusicResourceInfo currentMusicResourceInfo = MusicResourceInfo.NONE;
     @Getter
     private volatile LocalDateTime nowPlayingStartTime = LocalDateTime.MIN;
 
@@ -65,86 +65,75 @@ public class MusicPlayerServerService {
             if (musicDataPusher == null) {
                 AtomicReference<Runnable> runnableReference = new AtomicReference<>();
                 runnableReference.set(new Runnable() {
-                    private MusicDetail lastRandom = MusicDetail.NONE;
+                    private MusicDetail preloadMusicDetail = MusicDetail.NONE;
 
                     @Override
                     public void run() {
                         Thread.currentThread().setName("Music Data Pusher Thread");
                         while (MusicPlayerServerService.this.continuable && musicDataPusher == runnableReference.get()) {
-                            MusicDetail nextToPlay = null;
-                            MusicDetail preloadMusicDetail;
+                            MusicDetail switchedToPlay = null;
+                            MusicDetail nextMusicDetail;
                             try {
                                 if (musicQueue.isEmpty()) {
                                     Optional<MusicDetail> optionalMusicDetail = getRandomMusicFromIdleSources();
                                     if (optionalMusicDetail.isEmpty()) {
                                         NetworkManager.sendToPlayers(
                                                 LoginApiService.getInstance().loginedPlayerInfoMap.keySet(),
-                                                new SwitchMusicMessage(MusicDetail.NONE, MusicResourceInfo.NONE, MusicDetail.NONE, MusicResourceInfo.NONE)
+                                                new SwitchMusicMessage(MusicDetail.NONE, MusicDetail.NONE)
                                         );
                                         MusicPlayerServerService.this.stopSendingMusic();
                                         break;
                                     } else {
                                         MusicDetail musicDetail = optionalMusicDetail.get();
-                                        if (lastRandom == null || lastRandom.equals(MusicDetail.NONE)) {
-                                            lastRandom = musicDetail;
+                                        if (preloadMusicDetail == null || preloadMusicDetail.equals(MusicDetail.NONE)) {
+                                            preloadMusicDetail = musicDetail;
                                             Optional<MusicDetail> optionalMusicDetail1 = getRandomMusicFromIdleSources();
                                             if (optionalMusicDetail1.isPresent()) {
-                                                nextToPlay = lastRandom;
-                                                preloadMusicDetail = optionalMusicDetail1.get();
-                                                lastRandom = preloadMusicDetail;
+                                                switchedToPlay = preloadMusicDetail;
+                                                nextMusicDetail = optionalMusicDetail1.get();
+                                                preloadMusicDetail = nextMusicDetail;
                                             } else {
-                                                nextToPlay = musicDetail;
-                                                lastRandom = null;
+                                                switchedToPlay = musicDetail;
+                                                preloadMusicDetail = MusicDetail.NONE;
                                             }
                                         } else {
-                                            nextToPlay = lastRandom;
-                                            lastRandom = musicDetail;
+                                            switchedToPlay = preloadMusicDetail;
+                                            preloadMusicDetail = musicDetail;
                                         }
                                     }
                                 } else {
-                                    nextToPlay = musicQueue.remove();
+                                    switchedToPlay = musicQueue.remove();
                                     NetworkManager.sendToPlayers(LoginApiService.getInstance().loginedPlayerInfoMap.keySet(),
                                             new RefreshMusicQueueMessage(musicQueue));
                                 }
 
-                                MusicResourceInfo resourceInfo = musicApiService.getResourceInfo(nextToPlay);
-                                MusicResourceInfo preloadResourceInfo;
                                 if (!musicQueue.isEmpty()) {
-                                    preloadMusicDetail = musicQueue.getFirst();
+                                    nextMusicDetail = musicQueue.getFirst();
                                 } else {
-                                    preloadMusicDetail = lastRandom;
+                                    nextMusicDetail = preloadMusicDetail != null ? preloadMusicDetail : MusicDetail.NONE;
                                 }
 
-                                if (resourceInfo != null) {
-                                    preloadResourceInfo = musicApiService.getResourceInfo(preloadMusicDetail);
-                                    NetworkManager.sendToPlayers(
-                                            LoginApiService.getInstance().loginedPlayerInfoMap.keySet(),
-                                            new SwitchMusicMessage(nextToPlay, resourceInfo, preloadMusicDetail, preloadResourceInfo)
-                                    );
-                                    currentMusicDetail = nextToPlay;
-                                    currentMusicResourceInfo = resourceInfo;
-                                    nowPlayingStartTime = LocalDateTime.now();
-                                    logger.info("Switched to music: {} (ID: {})", nextToPlay.getName(), nextToPlay.getId());
-                                    try {
-                                        //noinspection BusyWait
-                                        Thread.sleep(nextToPlay.getDurationMillis() + musicIntervalMillis);
-                                    } catch (InterruptedException ignored) {
-                                        logger.warn("Music data pusher interrupted");
-                                        break;
-                                    }
-                                } else {
-                                    logger.error("Failed to get resource info for music: {} (ID: {}), switching next",
-                                            nextToPlay.getName(), nextToPlay.getId());
-                                    try {
-                                        Thread.sleep(1000);
-                                    } catch (InterruptedException ignored) {
-                                        break;
-                                    }
+                                loadResourceInfoIfUnloaded(switchedToPlay);
+//                                loadResourceInfoIfUnloaded(nextMusicDetail);
+//
+                                NetworkManager.sendToPlayers(
+                                        LoginApiService.getInstance().loginedPlayerInfoMap.keySet(),
+                                        new SwitchMusicMessage(switchedToPlay, nextMusicDetail)
+                                );
+                                currentMusicDetail = switchedToPlay;
+                                nowPlayingStartTime = LocalDateTime.now();
+                                logger.info("Switched to music: {} (ID: {})", switchedToPlay.getName(), switchedToPlay.getId());
+                                try {
+                                    //noinspection BusyWait
+                                    Thread.sleep(switchedToPlay.getDurationMillis() + musicIntervalMillis);
+                                } catch (InterruptedException ignored) {
+                                    logger.warn("Music data pusher interrupted");
+                                    break;
                                 }
                             } catch (Exception e) {
                                 logger.error("Failed to push music: {} (id: {})",
-                                        nextToPlay != null ? nextToPlay.getName() : "null",
-                                        nextToPlay != null ? nextToPlay.getId() : "-1",
+                                        switchedToPlay != null ? switchedToPlay.getName() : "null",
+                                        switchedToPlay != null ? switchedToPlay.getId() : "-1",
                                         e);
                                 try {
                                     Thread.sleep(1000);
@@ -157,31 +146,43 @@ public class MusicPlayerServerService {
                     }
 
                     private Optional<MusicDetail> getRandomMusicFromIdleSources() {
-                        Optional<Map.Entry<ServerPlayer, Set<Playlist>>> optionalRandomIdlePlaySource = idlePlaySources.entrySet().stream()
-                                .sorted((a, b) -> MusicHud.RANDOM.nextInt(-1, 1))
-                                .findAny();
-                        if (optionalRandomIdlePlaySource.isPresent()) {
-                            Map.Entry<ServerPlayer, Set<Playlist>> serverPlayerSetEntry = optionalRandomIdlePlaySource.get();
-                            ServerPlayer sourcePlayer = serverPlayerSetEntry.getKey();
-                            Optional<MusicDetail> musicDetailOptional = serverPlayerSetEntry.getValue().stream()
-                                    .flatMap(playlist -> playlist.getTracks().stream())
-                                    .sorted((a, b) -> MusicHud.RANDOM.nextInt(-1, 1))
-                                    .findAny();
-                            musicDetailOptional.ifPresent(musicDetail -> {
-                                        LoginApiService.PlayerLoginInfo loginInfo =
-                                                LoginApiService.getInstance().getLoginInfoByServerPlayer(sourcePlayer);
-                                        PusherInfo pusherInfo = new PusherInfo(
-                                                loginInfo.profile.getUserId(),
-                                                sourcePlayer.getUUID(),
-                                                sourcePlayer.getName().getString()
-                                        );
-                                        musicDetail.setPusherInfo(pusherInfo);
-                                    }
-                            );
-                            return musicDetailOptional;
-                        } else {
+                        if (idlePlaySources.isEmpty()) {
                             return Optional.empty();
                         }
+
+                        List<Map.Entry<ServerPlayer, Set<Playlist>>> entryList =
+                                new ArrayList<>(idlePlaySources.entrySet());
+
+                        if (entryList.isEmpty()) {
+                            return Optional.empty();
+                        }
+
+                        Map.Entry<ServerPlayer, Set<Playlist>> randomEntry =
+                                entryList.get(MusicHud.RANDOM.nextInt(entryList.size()));
+
+                        ServerPlayer sourcePlayer = randomEntry.getKey();
+                        Set<Playlist> playlists = randomEntry.getValue();
+
+                        List<MusicDetail> allTracks = playlists.stream()
+                                .flatMap(playlist -> playlist.getTracks().stream())
+                                .toList();
+
+                        if (allTracks.isEmpty()) {
+                            return Optional.empty();
+                        }
+
+                        MusicDetail randomTrack = allTracks.get(MusicHud.RANDOM.nextInt(allTracks.size()));
+
+                        LoginApiService.PlayerLoginInfo loginInfo =
+                                LoginApiService.getInstance().getLoginInfoByServerPlayer(sourcePlayer);
+                        PusherInfo pusherInfo = new PusherInfo(
+                                loginInfo.profile.getUserId(),
+                                sourcePlayer.getUUID(),
+                                sourcePlayer.getName().getString()
+                        );
+                        randomTrack.setPusherInfo(pusherInfo);
+
+                        return Optional.of(randomTrack);
                     }
                 });
                 musicDataPusher = runnableReference.get();
@@ -190,14 +191,27 @@ public class MusicPlayerServerService {
         }
     }
 
+    private void loadResourceInfoIfUnloaded(MusicDetail musicDetail) {
+        if (musicDetail != null && !musicDetail.equals(MusicDetail.NONE)) {
+            MusicResourceInfo musicResourceInfo = musicDetail.getMusicResourceInfo();
+            if (musicResourceInfo == null || musicResourceInfo.equals(MusicResourceInfo.NONE)) {
+                MusicResourceInfo resourceInfo = musicApiService.getResourceInfo(musicDetail);
+                if (resourceInfo != null && !resourceInfo.equals(MusicResourceInfo.NONE)) {
+                    musicDetail.setMusicResourceInfo(resourceInfo);
+                } else {
+                    throw new RuntimeException("Failed to get resource info for music: " + musicDetail.getName() + " (ID: " + musicDetail.getId() + ")");
+                }
+            }
+        }
+    }
+
     private void stopSendingMusic() {
         this.continuable = false;
         musicDataPusher = null;
         currentMusicDetail = MusicDetail.NONE;
-        currentMusicResourceInfo = MusicResourceInfo.NONE;
         NetworkManager.sendToPlayers(
                 LoginApiService.getInstance().loginedPlayerInfoMap.keySet(),
-                new SwitchMusicMessage(MusicDetail.NONE, MusicResourceInfo.NONE, MusicDetail.NONE, MusicResourceInfo.NONE)
+                new SwitchMusicMessage(MusicDetail.NONE, MusicDetail.NONE)
         );
     }
 
@@ -205,15 +219,8 @@ public class MusicPlayerServerService {
         NetworkManager.sendToPlayer(serverPlayer,
                 new RefreshMusicQueueMessage(musicQueue));
         if (currentMusicDetail != MusicDetail.NONE) {
-            if (currentMusicResourceInfo.getId() != currentMusicDetail.getId()) {
-                currentMusicResourceInfo = musicApiService.getResourceInfo(currentMusicDetail);
-            }
-            if (currentMusicResourceInfo != null && !currentMusicResourceInfo.equals(MusicResourceInfo.NONE)) {
-                NetworkManager.sendToPlayer(serverPlayer,
-                        new SyncCurrentPlayingMessage(currentMusicDetail, currentMusicResourceInfo, nowPlayingStartTime));
-            } else {
-                logger.warn("Failed to get resource info for current playing music ID: {}", currentMusicDetail.getId());
-            }
+            NetworkManager.sendToPlayer(serverPlayer,
+                    new SyncCurrentPlayingMessage(currentMusicDetail, nowPlayingStartTime));
         }
     }
 

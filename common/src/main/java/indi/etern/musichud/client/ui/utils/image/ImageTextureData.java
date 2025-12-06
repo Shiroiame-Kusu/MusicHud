@@ -39,7 +39,7 @@ public final class ImageTextureData implements Closeable {
     @Override
     public void close() {
         String nowPlayingAlbumUrl = NowPlayingInfo.getInstance().getCurrentlyPlayingMusicDetail().getAlbum().getPicUrl();
-        if (nowPlayingAlbumUrl.equals(source)) {
+        if (nowPlayingAlbumUrl.equals(source) || source.contains(nowPlayingAlbumUrl)) {
             AtomicReference<BiConsumer<MusicDetail, MusicDetail>> atomicListenerReference = new AtomicReference<>();
             atomicListenerReference.set((previous, current) -> {
                 NowPlayingInfo.getInstance().getMusicSwitchListener().remove(atomicListenerReference.get());
@@ -64,15 +64,21 @@ public final class ImageTextureData implements Closeable {
         if (!registered) {
             synchronized (source) {
                 if (!registered) {
-                    return Minecraft.getInstance().submit(() -> {
+                    CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+                    Minecraft.getInstance().submit(() -> {
                         Minecraft.getInstance().getTextureManager().register(location, texture);
                         logger.debug("Registered texture {} : {}", location, texture);
                         registered = true;
+                    }).thenAcceptAsync((v) -> {
                         try {
-                            Thread.sleep(Duration.of(20, ChronoUnit.MILLIS));//TODO better solution
+                            // approximately 1 game tick
+                            Thread.sleep(Duration.of(50, ChronoUnit.MILLIS));//TODO better solution
                         } catch (InterruptedException ignored) {
+                        } finally {
+                            completableFuture.complete(null);
                         }
-                    });
+                    }, MusicHud.EXECUTOR);
+                    return completableFuture;
                 } else {
                     logger.debug("Texture already registered (concurrent access detected) {} : {}", location, texture);
                     return CompletableFuture.completedFuture(null);

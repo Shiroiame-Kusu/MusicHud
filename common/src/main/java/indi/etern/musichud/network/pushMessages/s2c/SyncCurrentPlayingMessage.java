@@ -14,13 +14,10 @@ import net.minecraft.network.codec.StreamCodec;
 
 import java.time.LocalDateTime;
 
-public record SyncCurrentPlayingMessage(MusicDetail currentPlaying, MusicResourceInfo resourceInfo,
-                                        LocalDateTime startTime) implements S2CPayload {
+public record SyncCurrentPlayingMessage(MusicDetail currentPlaying, LocalDateTime startTime) implements S2CPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, SyncCurrentPlayingMessage> CODEC = StreamCodec.composite(
             MusicDetail.CODEC,
             SyncCurrentPlayingMessage::currentPlaying,
-            MusicResourceInfo.CODEC,
-            SyncCurrentPlayingMessage::resourceInfo,
             Codecs.LOCAL_DATE_TIME,
             SyncCurrentPlayingMessage::startTime,
             SyncCurrentPlayingMessage::new
@@ -34,7 +31,7 @@ public record SyncCurrentPlayingMessage(MusicDetail currentPlaying, MusicResourc
                     (message, context) -> {
                         MusicHud.EXECUTOR.execute(() -> {
                             MusicService musicService = MusicService.getInstance();
-                            musicService.switchMusic(message.currentPlaying, message.resourceInfo, message.startTime);
+                            musicService.switchMusic(message.currentPlaying, message.currentPlaying.getMusicResourceInfo(), message.startTime);
                         });
                     }
             );

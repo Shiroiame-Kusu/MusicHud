@@ -2,8 +2,10 @@ package indi.etern.musichud.client.ui.pages;
 
 import icyllis.modernui.core.Context;
 import icyllis.modernui.view.Gravity;
+import icyllis.modernui.view.View;
 import icyllis.modernui.widget.FrameLayout;
 import icyllis.modernui.widget.LinearLayout;
+import icyllis.modernui.widget.ScrollView;
 import icyllis.modernui.widget.TextView;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
@@ -38,9 +40,20 @@ public class AccountBaseView extends LinearLayout {
     public void refresh() {
         Context context = getContext();
         removeAllViews();
+
+        var scrollView = new ScrollView(context);
+        scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+        scrollView.setFillViewport(true);
+        addView(scrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+        LinearLayout view = new LinearLayout(context);
+        view.setOrientation(LinearLayout.VERTICAL);
+        view.setGravity(Gravity.CENTER_HORIZONTAL);
+        scrollView.addView(view, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+
         boolean enabled = ClientConfigDefinition.enable.get();
         if (!MusicHud.isConnected() || !enabled) {
-            setGravity(Gravity.CENTER);
+            view.setGravity(Gravity.CENTER);
             TextView textView = new TextView(context);
             textView.setTextSize(textView.dp(8f));
             int color = Theme.EMPHASIZE_TEXT_COLOR;
@@ -51,18 +64,18 @@ public class AccountBaseView extends LinearLayout {
                 textView.setText("Music Hud 已禁用");
             }
             textView.setLayoutParams(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-            addView(textView);
+            view.addView(textView);
         } else {
             setGravity(Gravity.CENTER_HORIZONTAL);
             if (LoginService.getInstance().isLogined()) {
                 AccountView accountView = new AccountView(context);
-                addView(accountView);
+                view.addView(accountView);
             } else {
                 QRLoginView qrLoginView = new QRLoginView(context);
                 LayoutParams loginParams = new LayoutParams(MATCH_PARENT, WRAP_CONTENT);
                 loginParams.setMargins(0, qrLoginView.dp(120), 0, 0);
                 qrLoginView.setLayoutParams(loginParams);
-                addView(qrLoginView);
+                view.addView(qrLoginView);
             }
         }
     }

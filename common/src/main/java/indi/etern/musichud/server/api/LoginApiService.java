@@ -32,6 +32,7 @@ public class LoginApiService {
     Map<ServerPlayer, PlayerLoginInfo> loginedPlayerInfoMap = new HashMap<>();
     @Getter
     Set<Consumer<Map<ServerPlayer, PlayerLoginInfo>>> loginStateChangeListeners = new HashSet<>();
+    String anonymousCookie;
 
     public static LoginApiService getInstance() {
         if (loginApiService == null) {
@@ -56,6 +57,21 @@ public class LoginApiService {
                         LoginCookieInfo.UNLOGGED,
                         Profile.ANONYMOUS)
         );
+    }
+
+    public String getAnonymousCookie() {
+        if (anonymousCookie == null) {
+            AnonymousLoginData response = ApiClient.post(
+                    ServerApiMeta.Login.ANONYMOUS,
+                    null,
+                    null);
+            if (response.code == 200) {
+                anonymousCookie = response.cookie;
+            } else {
+                logger.warn("Failed to get an anonymous cookie");
+            }
+        }
+        return anonymousCookie;
     }
 
     public String randomVipCookieOr(String defaultCookie) {
@@ -94,7 +110,7 @@ public class LoginApiService {
             loginCookieInfo = new LoginCookieInfo(LoginType.ANONYMOUS, response.cookie, LocalDateTime.now());
             AccountDetail accountDetail = loadUserProfile(player, loginCookieInfo);
             NetworkManager.sendToPlayer(player, new LoginResultMessage(true, "", loginCookieInfo, accountDetail.getProfile()));
-        } else if (sendFail){
+        } else if (sendFail) {
             sendLoginFailResult(player, new RuntimeException("login failed"));
         }
     }

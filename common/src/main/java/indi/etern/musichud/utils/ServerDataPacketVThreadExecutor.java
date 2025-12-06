@@ -19,6 +19,7 @@ public class ServerDataPacketVThreadExecutor {
                         consumer.accept(payload, serverPlayer);
                     } catch (Exception e) {
                         MusicHud.getLogger(payload.getClass()).error(e);
+                        e.printStackTrace();
                     }
                 } else {
                     throw new IllegalStateException("Player must be a server player");

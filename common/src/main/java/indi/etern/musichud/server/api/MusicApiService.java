@@ -12,18 +12,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class MusicApiService {
-    private static volatile MusicApiService musicApiService;
-    private final LoginApiService loginApiService = LoginApiService.getInstance();
     private static final Logger logger = MusicHud.getLogger(MusicApiService.class);
-
     private static final Cache<Long, Playlist> playlistCache = CacheBuilder.newBuilder()
             .expireAfterAccess(10, TimeUnit.MINUTES)
             .maximumSize(50)
@@ -32,6 +31,8 @@ public class MusicApiService {
             .expireAfterAccess(10, TimeUnit.MINUTES)
             .maximumSize(400)
             .build();
+    private static volatile MusicApiService musicApiService;
+    private final LoginApiService loginApiService = LoginApiService.getInstance();
 
     public static MusicApiService getInstance() {
         if (musicApiService == null) {
@@ -44,47 +45,29 @@ public class MusicApiService {
         return musicApiService;
     }
 
-    record IdRequest(long id) {}
     public Playlist getPlaylistDetail(long id, @Nullable ServerPlayer serverPlayer) {
         Playlist cached = playlistCache.getIfPresent(id);
         if (cached != null) {
             return cached;
         } else {
-            String rawCookie = null;
+            String rawCookie;
             LoginApiService.PlayerLoginInfo loginInfo = LoginApiService.getInstance().loginedPlayerInfoMap.get(serverPlayer);
             if (loginInfo != null) {
                 rawCookie = loginInfo.loginCookieInfo.rawCookie();
+            } else {
+                rawCookie = loginApiService.getAnonymousCookie();
             }
             PlaylistResponse playlistResponse = ApiClient.post(ServerApiMeta.Playlist.DETAIL, new IdRequest(id), rawCookie);
-            Playlist playlist = playlistResponse.getPlaylist();
-            playlistCache.put(id, playlist);
-            return playlist;
-        }
-    }
-
-    record SearchRequestBody(String keywords, int limit, int offset, String cookie, SearchType type) {
-        public enum SearchType implements IntegerCodeEnum {
-            MUSIC(1),
-            ALBUM(10),
-            ARTIST(100),
-            PLAYLIST(1000),
-            USER(1002),
-            MV(1004),
-            LYRICS(1006),
-            RADIO(1009),
-            VIDEO(1014),
-            COMPREHENSIVE(1018),
-            SOUND(2000);
-            @Getter
-            private final int code;
-            SearchType(int code) {
-                this.code = code;
+            if (playlistResponse.getCode() == 200) {
+                Playlist playlist = playlistResponse.getPlaylist();
+                playlistCache.put(id, playlist);
+                return playlist;
+            } else {
+                logger.error("Failed to get playlist detail of player: {} (response code: {})", Objects.requireNonNull(serverPlayer).getName().getString(), playlistResponse.getCode());
+                return null;
             }
         }
     }
-    public record SearchResponseBody(
-        MusicDetailResponse result
-    ) {}
 
     public List<MusicDetail> search(String keywords) {
         try {
@@ -95,9 +78,6 @@ public class MusicApiService {
             throw new RuntimeException(e);
         }
     }
-
-    record GetDetailsRequestBody(List<String> ids, String cookie) {}
-    record GetDetailRequestBody(String ids, String cookie) {}
 
     public List<MusicDetail> getMusicDetailByIds(List<Long> ids) {
         List<Long> uncachedIds = new ArrayList<>();
@@ -136,11 +116,6 @@ public class MusicApiService {
         }
     }
 
-    record GetDirectResourceUrlRequest(long id, boolean unblock, Quality level) {}
-    record GetMatchResourceUrlRequest(long id, String source) {}
-    public record GetDirectResourceUrlResponse(int code, List<MusicResourceInfo> data) {}
-    public record GetMatchResourceUrlResponse(int code, MusicResourceInfo data) {}
-
     public MusicResourceInfo getResourceInfo(MusicDetail musicDetail) {
         if (musicDetail == null || musicDetail.equals(MusicDetail.NONE)) {
             return MusicResourceInfo.NONE;
@@ -151,25 +126,43 @@ public class MusicApiService {
                 MusicResourceInfo musicResourceInfo = response.data.getFirst();
                 // 30 seconds trial
                 if (musicResourceInfo.getTime() == 30040) {
-                    var unblockRequest = new GetMatchResourceUrlRequest(musicDetail.getId(), "pyncmd,bodian");
-                    var unblockResponse = ApiClient.post(ServerApiMeta.Music.UNBLOCK, unblockRequest, loginApiService.randomVipCookieOr(null));
-                    musicResourceInfo = unblockResponse.data;
-                    musicResourceInfo.completeFrom(musicDetail);
+                    musicResourceInfo = getMusicResourceInfoFromMatcher(musicDetail);
                 }
-                try {
-                    LyricInfo lyricInfo = getLyricInfo(musicDetail);
-                    musicResourceInfo.setLyricInfo(lyricInfo);
-                } catch (Exception e) {
-                    logger.warn("Failed to get lyric for music: {} (ID: {})", musicDetail.getName(), musicDetail.getId(), e);
-                }
+                completeLyricInfo(musicDetail, musicResourceInfo);
                 return musicResourceInfo;
             } else {
-                logger.error("Failed to get lyric for music: {} (ID: {})", musicDetail.getName(), musicDetail.getId());
-                return null;
+                logger.warn("Failed to get resource for music: {} (ID: {}), trying substitute", musicDetail.getName(), musicDetail.getId());
+                MusicResourceInfo musicResourceInfo;
+                try {
+                    musicResourceInfo = getMusicResourceInfoFromMatcher(musicDetail);
+                    completeLyricInfo(musicDetail, musicResourceInfo);
+                } catch (Exception e) {
+                    logger.error("Failed to get resource for music from substitute: {} (ID: {})", musicDetail.getName(), musicDetail.getId());
+                    musicResourceInfo = MusicResourceInfo.NONE;
+                }
+                return musicResourceInfo;
             }
         }
     }
-    public record RequestDataWithUID(long uid) {}
+
+    private void completeLyricInfo(MusicDetail musicDetail, MusicResourceInfo musicResourceInfo) {
+        try {
+            LyricInfo lyricInfo = getLyricInfo(musicDetail);
+            musicResourceInfo.setLyricInfo(lyricInfo);
+        } catch (Exception e) {
+            logger.warn("Failed to get lyric for music: {} (ID: {})", musicDetail.getName(), musicDetail.getId(), e);
+        }
+    }
+
+    private @NotNull MusicResourceInfo getMusicResourceInfoFromMatcher(MusicDetail musicDetail) {
+        MusicResourceInfo musicResourceInfo;
+        var unblockRequest = new GetMatchResourceUrlRequest(musicDetail.getId(), "pyncmd,bodian");
+        var unblockResponse = ApiClient.post(ServerApiMeta.Music.UNBLOCK, unblockRequest, loginApiService.randomVipCookieOr(null));
+        musicResourceInfo = unblockResponse.data;
+        musicResourceInfo.completeFrom(musicDetail);
+        return musicResourceInfo;
+    }
+
     public List<Playlist> getPlayersUserPlaylists(ServerPlayer player) {
         LoginApiService.PlayerLoginInfo loginInfo = loginApiService.getLoginInfoByServerPlayer(player);
         Profile profile = loginInfo.profile;
@@ -186,15 +179,62 @@ public class MusicApiService {
     }
 
     public LyricInfo getLyricInfo(MusicDetail musicDetail) {
-        try {
-            var response = ApiClient.post(ServerApiMeta.Music.LYRIC, new IdRequest(musicDetail.getId()), null);
-            if (response.getCode() == 200) {
-                return response;
-            } else {
-                throw new RuntimeException("Failed to get lyric for music: " + musicDetail.getName() + " (ID: " + musicDetail.getId() + ")");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        var response = ApiClient.post(ServerApiMeta.Music.WORD_BY_WORD_LYRIC, new IdRequest(musicDetail.getId()), loginApiService.randomVipCookieOr(loginApiService.getAnonymousCookie()));
+        if (response.getCode() == 200) {
+            return response;
+        } else {
+            throw new RuntimeException("Failed to get lyric for music: " + musicDetail.getName() + " (ID: " + musicDetail.getId() + "), response code:" + response.getCode());
         }
+    }
+
+    record IdRequest(long id) {
+    }
+
+    record SearchRequestBody(String keywords, int limit, int offset, String cookie, SearchType type) {
+        public enum SearchType implements IntegerCodeEnum {
+            MUSIC(1),
+            ALBUM(10),
+            ARTIST(100),
+            PLAYLIST(1000),
+            USER(1002),
+            MV(1004),
+            LYRICS(1006),
+            RADIO(1009),
+            VIDEO(1014),
+            COMPREHENSIVE(1018),
+            SOUND(2000);
+            @Getter
+            private final int code;
+
+            SearchType(int code) {
+                this.code = code;
+            }
+        }
+    }
+
+    public record SearchResponseBody(
+            MusicDetailResponse result
+    ) {
+    }
+
+    record GetDetailsRequestBody(List<String> ids, String cookie) {
+    }
+
+    record GetDetailRequestBody(String ids, String cookie) {
+    }
+
+    record GetDirectResourceUrlRequest(long id, boolean unblock, Quality level) {
+    }
+
+    record GetMatchResourceUrlRequest(long id, String source) {
+    }
+
+    public record GetDirectResourceUrlResponse(int code, List<MusicResourceInfo> data) {
+    }
+
+    public record GetMatchResourceUrlResponse(int code, MusicResourceInfo data) {
+    }
+
+    public record RequestDataWithUID(long uid) {
     }
 }

@@ -221,7 +221,7 @@ public class AccountView extends LinearLayout {
                         removeView(progressBar);
                     });
                 }
-            });
+            }, MusicHud.EXECUTOR);
 
             musicService.getIdlePlaylists().forEach(playlist -> {
                 PlaylistCard child = new PlaylistCard(context, playlist);

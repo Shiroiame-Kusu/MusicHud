@@ -7,6 +7,7 @@ import icyllis.modernui.view.Gravity;
 import icyllis.modernui.view.View;
 import icyllis.modernui.widget.FrameLayout;
 import icyllis.modernui.widget.LinearLayout;
+import icyllis.modernui.widget.ScrollView;
 import indi.etern.musichud.client.config.ClientConfigDefinition;
 import indi.etern.musichud.client.music.NowPlayingInfo;
 import indi.etern.musichud.client.services.LoginService;
@@ -21,6 +22,7 @@ import lombok.Getter;
 import net.minecraft.Util;
 
 import static icyllis.modernui.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static icyllis.modernui.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 public class ConfigView extends LinearLayout {
     @Getter
@@ -30,10 +32,19 @@ public class ConfigView extends LinearLayout {
         super(context);
         try {
             instance = this;
+
             var baseParams = new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
             setLayoutParams(baseParams);
-            setOrientation(LinearLayout.VERTICAL);
-            setGravity(Gravity.CENTER_HORIZONTAL);
+
+            var scrollView = new ScrollView(context);
+            scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+            scrollView.setFillViewport(true);
+            addView(scrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+            LinearLayout view = new LinearLayout(context);
+            view.setOrientation(LinearLayout.VERTICAL);
+            view.setGravity(Gravity.CENTER_HORIZONTAL);
+            scrollView.addView(view, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
 
             HudRendererManager hudRendererManager = HudRendererManager.getInstance();
 
@@ -64,7 +75,7 @@ public class ConfigView extends LinearLayout {
                     ClientConfigDefinition.hideHudWhenNotPlaying,
                     ClientConfigDefinition.hideHudWhenNotPlaying::set)
                     .create(commonCategory);
-            addView(commonCategory);
+            view.addView(commonCategory);
 
             var positionCategory = PreferencesFragment.createCategoryList(this, "布局");
             new PreferencesFragment.DropDownOption<>(
@@ -118,15 +129,15 @@ public class ConfigView extends LinearLayout {
                     .setDefaultValue(16)
                     .create(positionCategory);
             DynamicIntegerOption cornerRadiusOption = new DynamicIntegerOption(
-                            context,
-                            "圆角半径",
-                            ClientConfigDefinition.hudCornerRadius,
-                            ClientConfigDefinition.hudCornerRadius::set);
-            cornerRadiusOption.setRange(0, ClientConfigDefinition.hudHeight.get()/2);
+                    context,
+                    "圆角半径",
+                    ClientConfigDefinition.hudCornerRadius,
+                    ClientConfigDefinition.hudCornerRadius::set);
+            cornerRadiusOption.setRange(0, ClientConfigDefinition.hudHeight.get() / 2);
             cornerRadiusOption.setOnChanged(() -> {
-                                hudRendererManager.updateLayoutFromConfig();
-                                hudRendererManager.refreshStyle();
-                            });
+                hudRendererManager.updateLayoutFromConfig();
+                hudRendererManager.refreshStyle();
+            });
             cornerRadiusOption.setDefaultValue(8);
             DynamicIntegerOption widthOption = new DynamicIntegerOption(
                     context,
@@ -134,9 +145,9 @@ public class ConfigView extends LinearLayout {
                     ClientConfigDefinition.hudWidth,
                     ClientConfigDefinition.hudWidth::set);
             widthOption.setOnChanged(() -> {
-                        hudRendererManager.updateLayoutFromConfig();
-                        hudRendererManager.refreshStyle();
-                    });
+                hudRendererManager.updateLayoutFromConfig();
+                hudRendererManager.refreshStyle();
+            });
             widthOption.setRange(ClientConfigDefinition.hudHeight.get(), 256, 4);
             widthOption.setDefaultValue(150);
             PreferencesFragment.IntegerOption heightOption = new PreferencesFragment.IntegerOption(
@@ -156,11 +167,12 @@ public class ConfigView extends LinearLayout {
             heightOption.create(positionCategory);
             cornerRadiusOption.create(positionCategory);
 
-            addView(positionCategory);
+            view.addView(positionCategory);
 
             addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
                 @Override
-                public void onViewAttachedToWindow(View v) {}
+                public void onViewAttachedToWindow(View v) {
+                }
 
                 @Override
                 public void onViewDetachedFromWindow(View v) {

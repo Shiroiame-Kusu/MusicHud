@@ -33,7 +33,7 @@ public class ServerApiMeta {
         }
         public URI toURI() {
             return URI.create(
-                    apiBaseUrl + url + "?randomCNIP=true" + (noCache?"&timestamp="+System.currentTimeMillis():""));
+                    apiBaseUrl + url + "?randomCNIP=true" + (noCache?"?timestamp="+System.currentTimeMillis():""));
         }
     }
 
@@ -226,11 +226,11 @@ public class ServerApiMeta {
                 Set.of("id")
                 ,null,
                 true, false, LyricInfo.class);
-        public static final UrlMeta<String> WORD_BY_WORD_LYRIC = new UrlMeta<>(
+        public static final UrlMeta<LyricInfo> WORD_BY_WORD_LYRIC = new UrlMeta<>(
                 "/lyric/new",
                 Set.of("id"),
                 null,
-                false, false, String.class);//TODO
+                false, false, LyricInfo.class);
     }
     public static class Album {
         public static final UrlMeta<String> DETAIL = new UrlMeta<>(

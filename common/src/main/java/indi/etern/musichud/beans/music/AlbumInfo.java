@@ -36,4 +36,7 @@ public class AlbumInfo {
     long picSize;
 
     public static final AlbumInfo NONE = new AlbumInfo();
+    public String getThumbnailPicUrl(int size) {
+        return picUrl + "?param="+ size + "y" + size;
+    }
 }

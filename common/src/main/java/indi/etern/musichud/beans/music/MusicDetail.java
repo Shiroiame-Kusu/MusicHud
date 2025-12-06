@@ -33,10 +33,10 @@ public class MusicDetail {
             MusicDetail::getDurationMillis,
             Codecs.ofList(ByteBufCodecs.STRING_UTF8),
             MusicDetail::getTranslations,
-            PrivilegeInfo.CODEC,
-            MusicDetail::getPrivilege,
             PusherInfo.CODEC,
             MusicDetail::getPusherInfo,
+            MusicResourceInfo.CODEC,
+            MusicDetail::getMusicResourceInfo,
             MusicDetail::new
     );
     public static final MusicDetail NONE = new MusicDetail();
@@ -50,8 +50,8 @@ public class MusicDetail {
             AlbumInfo album,
             int durationMillis,
             List<String> translations,
-            PrivilegeInfo privilege,
-            PusherInfo pusherInfo
+            PusherInfo pusherInfo,
+            MusicResourceInfo musicResourceInfo
     ) {
         this.name = name;
         this.id = id;
@@ -60,13 +60,13 @@ public class MusicDetail {
         this.album = album;
         this.durationMillis = durationMillis;
         this.translations = translations;
-        this.privilege = privilege;
         this.pusherInfo = pusherInfo;
+        this.musicResourceInfo = musicResourceInfo;
     }
 
     private String name = "";
     private long id;
-    private MusicResourceType resourceType = MusicResourceType.NORMAL;
+//    private MusicResourceType resourceType = MusicResourceType.NORMAL;
     @JsonProperty("ar")
     private List<Artist> artists = List.of();
     @JsonProperty("alia")
@@ -96,9 +96,12 @@ public class MusicDetail {
     private OriginCoverType originCoverType;
     @JsonProperty("tns")
     private List<String> translations = List.of();
+    PrivilegeInfo privilege = PrivilegeInfo.NONE;
+    // Not contained in the original API response, set separately
     @Setter
     PusherInfo pusherInfo = PusherInfo.EMPTY;
-    PrivilegeInfo privilege = PrivilegeInfo.NONE;
+    @Setter
+    MusicResourceInfo musicResourceInfo = MusicResourceInfo.NONE;
 
     @Override
     public boolean equals(Object obj) {

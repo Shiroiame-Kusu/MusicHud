@@ -31,14 +31,14 @@ public class LyricDecoder {
                 lyricLine = new LyricLine();
                 if (duration != null) {
                     map.put(duration, lyricLine);
-                } else {
+                } else if (lyricLine.getText() != null && !lyricLine.getText().startsWith("}")) {
                     lyricLinesWithoutValidTimestamp.add(lyricLine);
                 }
             }
             lyricLine.setStartTime(duration);
             if (s != null) {
                 lyricLine.setText(s.trim());
-            } else {
+            } else if (lyricLine.getText() != null && !lyricLine.getText().startsWith("}")) {
                 lyricLine.setText("");
             }
         });

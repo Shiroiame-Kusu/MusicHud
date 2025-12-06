@@ -14,6 +14,7 @@ import icyllis.modernui.view.Gravity;
 import icyllis.modernui.view.View;
 import icyllis.modernui.view.ViewTreeObserver;
 import icyllis.modernui.widget.*;
+import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.client.ui.Theme;
 import indi.etern.musichud.client.ui.utils.ButtonInsetBackground;
 import indi.etern.musichud.client.ui.utils.image.ImageTextureData;
@@ -47,6 +48,7 @@ public class UrlImageView extends FrameLayout {
         checkVisibilityAndLoad();
         return true;
     };
+    private CompletableFuture<Void> loadFuture;
 
     public UrlImageView(Context context) {
         super(context);
@@ -215,7 +217,7 @@ public class UrlImageView extends FrameLayout {
     }
 
     private void loadBase64Image(String base64String) {
-        CompletableFuture.runAsync(() -> {
+        loadFuture = CompletableFuture.runAsync(() -> {
             MuiModApi.postToUiThread(() -> {
                 try {
                     ImageTextureData imageTextureData = ImageUtils.loadBase64(base64String);
@@ -224,11 +226,11 @@ public class UrlImageView extends FrameLayout {
                     showError("加载失败");
                 }
             });
-        });
+        }, MusicHud.EXECUTOR);
     }
 
     private void loadNetworkImage(String urlString) {
-        CompletableFuture.runAsync(() -> {
+        loadFuture = CompletableFuture.runAsync(() -> {
             try {
                 ImageUtils.downloadAsync(urlString).thenAcceptAsync(imageTextureData -> {
                     if (imageTextureData != null) {
@@ -237,14 +239,14 @@ public class UrlImageView extends FrameLayout {
                     } else {
                         MuiModApi.postToUiThread(() -> showError("下载失败"));
                     }
-                }).exceptionally((e) -> {
+                }, MusicHud.EXECUTOR).exceptionally((e) -> {
                     MuiModApi.postToUiThread(() -> showError("加载失败"));
                     return null;
                 });
             } catch (Exception e) {
                 MuiModApi.postToUiThread(() -> showError("加载失败"));
             }
-        });
+        }, MusicHud.EXECUTOR);
     }
 
     private void createDrawable(Bitmap bitmap) {
@@ -252,6 +254,7 @@ public class UrlImageView extends FrameLayout {
                 getContext().getResources(),
                 Image.createTextureFromBitmap(bitmap)
         );
+        drawable.setFilter(false);
 
         if (circular) {
             drawable.setCircular(true);
@@ -335,6 +338,13 @@ public class UrlImageView extends FrameLayout {
         if (nextImageView.getDrawable() instanceof RoundedImageDrawable roundedImageDrawable) {
             roundedImageDrawable.setCircular(true);
             nextImageView.invalidate();
+        }
+    }
+
+    public void cancelLoad() {
+        pendingUrl = null;
+        if (loadFuture != null) {
+            loadFuture.cancel(true);
         }
     }
 }

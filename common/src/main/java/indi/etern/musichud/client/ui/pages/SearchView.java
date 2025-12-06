@@ -23,6 +23,7 @@ import lombok.Getter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static icyllis.modernui.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static icyllis.modernui.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 public class SearchView extends LinearLayout {
@@ -62,22 +63,22 @@ public class SearchView extends LinearLayout {
 
         LinearLayout top = new LinearLayout(context);
         top.setOrientation(HORIZONTAL);
-        LayoutParams topParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(38));
+        LayoutParams topParams = new LayoutParams(MATCH_PARENT, dp(38));
         topParams.setMargins(0, dp(16), 0, dp(16));
         addView(top, topParams);
 
-        top.addView(new View(context), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 2));
+        top.addView(new View(context), new LayoutParams(0, WRAP_CONTENT, 2));
         searchTextInput = new EditText(context, null, R.attr.editTextOutlinedStyle);
         searchTextInput.setTextAlignment(SearchView.TEXT_ALIGNMENT_CENTER);
         searchTextInput.setHint("搜索音乐...");
         searchTextInput.setSingleLine();
-        LayoutParams params = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 6);
+        LayoutParams params = new LayoutParams(0, WRAP_CONTENT, 6);
         params.setMargins(dp(52), 0, 0, 0);
         top.addView(searchTextInput, params);
 
         Button searchButton = new Button(context);
         searchButton.setText("搜索");
-        LayoutParams buttonParams = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
+        LayoutParams buttonParams = new LayoutParams(WRAP_CONTENT, MATCH_PARENT);
         Drawable background = ButtonInsetBackground.builder()
                 .inset(0).padding(new ButtonInsetBackground.Padding(dp(8), 0, dp(8), 0))
                 .cornerRadius(dp(4)).build().get();
@@ -85,13 +86,18 @@ public class SearchView extends LinearLayout {
         buttonParams.setMargins(dp(8), 0, 0, 0);
         top.addView(searchButton, buttonParams);
 
-        top.addView(new View(context), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 2));
+        top.addView(new View(context), new LayoutParams(0, WRAP_CONTENT, 2));
+
+        var scrollView = new ScrollView(context);
+        scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+        scrollView.setFillViewport(true);
+        addView(scrollView, new LayoutParams(MATCH_PARENT, 0, 1));
 
         resultArea = new LinearLayout(context);
         resultArea.setOrientation(VERTICAL);
-        LayoutParams resultAreaParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        LayoutParams resultAreaParams = new LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         resultAreaParams.setMargins(dp(32), 0, dp(32), 0);
-        addView(resultArea, resultAreaParams);
+        scrollView.addView(resultArea, resultAreaParams);
 
         searchTextInput.setOnKeyListener((v, keyCode, event) -> {
             if (keyCode == KeyEvent.KEY_ENTER && event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -138,7 +144,8 @@ public class SearchView extends LinearLayout {
     }
 
     private void addItem(Context context, MusicDetail musicDetail) {
-        var musicLayout = new MusicListItem(context, musicDetail);
+        var musicLayout = new MusicListItem(context);
+        musicLayout.bindData(musicDetail);
         var background = ButtonInsetBackground.builder()
                 .cornerRadius(dp(12))
                 .inset(dp(1))

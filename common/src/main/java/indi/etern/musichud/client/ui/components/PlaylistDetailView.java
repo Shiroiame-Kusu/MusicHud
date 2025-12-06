@@ -4,8 +4,10 @@ import icyllis.modernui.core.Context;
 import icyllis.modernui.graphics.drawable.Drawable;
 import icyllis.modernui.mc.MuiModApi;
 import icyllis.modernui.view.Gravity;
+import icyllis.modernui.view.View;
 import icyllis.modernui.view.ViewGroup;
 import icyllis.modernui.widget.*;
+import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.Artist;
 import indi.etern.musichud.beans.music.MusicDetail;
 import indi.etern.musichud.beans.music.Playlist;
@@ -81,11 +83,16 @@ public class PlaylistDetailView extends LinearLayout {
         progressParams.setMargins(0, dp(32), 0, 0);
         addView(progressBar, progressParams);
 
+        var scrollView = new ScrollView(context);
+        scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+        scrollView.setFillViewport(true);
+        LayoutParams tracksParams = new LayoutParams(MATCH_PARENT, MATCH_PARENT);
+        tracksParams.setMargins(0, dp(32), 0, 0);
+        addView(scrollView, tracksParams);
+
         LinearLayout tracks = new LinearLayout(context);
         tracks.setOrientation(VERTICAL);
-        LayoutParams tracksParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
-        tracksParams.setMargins(0, dp(32), 0, 0);
-        addView(tracks, tracksParams);
+        scrollView.addView(tracks, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
 
         MusicService.getInstance().loadPlaylistDetail(playlist.getId()).thenAcceptAsync(playlistDetail -> {
             MuiModApi.postToUiThread(() -> {
@@ -95,11 +102,12 @@ public class PlaylistDetailView extends LinearLayout {
                     addItem(context, musicDetail, tracks);
                 }
             });
-        });
+        }, MusicHud.EXECUTOR);
     }
 
     private void addItem(Context context, MusicDetail musicDetail, LinearLayout tracks) {
-        var musicLayout = new MusicListItem(context, musicDetail);
+        var musicLayout = new MusicListItem(context);
+        musicLayout.bindData(musicDetail);
         var background = ButtonInsetBackground.builder()
                 .cornerRadius(dp(12))
                 .inset(dp(1))

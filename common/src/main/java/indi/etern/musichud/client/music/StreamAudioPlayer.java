@@ -58,7 +58,6 @@ public class StreamAudioPlayer {
     private volatile LocalDateTime serverStartTime;
     private LocalDateTime startLoadingTime;
     private Duration loadingDuration = Duration.ZERO;
-    //    private LocalDateTime fixedStartTime;
 
     public static StreamAudioPlayer getInstance() {
         if (instance == null) {
@@ -105,7 +104,7 @@ public class StreamAudioPlayer {
     public CompletableFuture<LocalDateTime> playAsyncFromUrl(String urlString, FormatType formatType, LocalDateTime startTime) {
         synchronized (StreamAudioPlayer.class) {
             try {
-//                stop(); // 先停止之前的播放
+                stop(); // 先停止之前的播放
 
                 source = AL10.alGenSources();
                 checkALError("alGenSources");
@@ -240,8 +239,6 @@ public class StreamAudioPlayer {
                                             // 可能是网络缓冲，填充静音数据
                                             audioData = new byte[BUFFER_SIZE];
                                             isBuffering = true;
-                                            if (status.get() != Status.RETRYING && status.get() != Status.ERROR)
-                                                setStatus(Status.BUFFERING);
                                         }
                                     } else {
                                         isBuffering = false;

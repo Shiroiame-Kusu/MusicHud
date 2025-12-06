@@ -9,6 +9,7 @@ import icyllis.modernui.view.View;
 import icyllis.modernui.view.ViewGroup;
 import icyllis.modernui.widget.Button;
 import icyllis.modernui.widget.LinearLayout;
+import icyllis.modernui.widget.ScrollView;
 import icyllis.modernui.widget.TextView;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.LyricLine;
@@ -94,7 +95,7 @@ public class HomeView extends LinearLayout {
         {
             LinearLayout lyricsView = new LinearLayout(context);
             lyricsView.setOrientation(VERTICAL);
-            LayoutParams lyricsViewParams = new LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 2);
+            LayoutParams lyricsViewParams = new LayoutParams(0, MATCH_PARENT, 2);
             addView(lyricsView, lyricsViewParams);
 
             TextView title = new TextView(context);
@@ -104,14 +105,19 @@ public class HomeView extends LinearLayout {
             params.setMargins(0, 0, 0, dp(32));
             lyricsView.addView(title, params);
 
+            var scrollView = new ScrollView(context);
+            scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+            scrollView.setFillViewport(true);
+            lyricsView.addView(scrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
             lyricLinesView = new LinearLayout(context);
             lyricLinesView.setOrientation(VERTICAL);
-            lyricsView.addView(lyricLinesView, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+            scrollView.addView(lyricLinesView, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         }
         {
             LinearLayout queueView = new LinearLayout(context);
             queueView.setOrientation(VERTICAL);
-            LayoutParams queueViewParams = new LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 3);
+            LayoutParams queueViewParams = new LayoutParams(0, MATCH_PARENT, 3);
             queueViewParams.setMargins(dp(48), 0, 0, 0);
             addView(queueView, queueViewParams);
 
@@ -122,10 +128,15 @@ public class HomeView extends LinearLayout {
             params.setMargins(0, 0, 0, dp(32));
             queueView.addView(title, params);
 
+            var scrollView = new ScrollView(context);
+            scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+            scrollView.setFillViewport(true);
+            queueView.addView(scrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
             LinearLayout playQueueListView = new LinearLayout(context);
             playQueueListView.setOrientation(VERTICAL);
             LayoutParams queueViewParams1 = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-            queueView.addView(playQueueListView, queueViewParams1);
+            scrollView.addView(playQueueListView, queueViewParams1);
 
             playQueueListView.removeAllViews();
 
@@ -170,7 +181,8 @@ public class HomeView extends LinearLayout {
     }
 
     private void addMusicQueueItem(MusicDetail musicDetail, LinearLayout playQueueView) {
-        MusicListItem item = new MusicListItem(getContext(), musicDetail);
+        MusicListItem item = new MusicListItem(getContext());
+        item.bindData(musicDetail);
         LayoutParams layoutParams = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, WRAP_CONTENT);
         layoutParams.setMargins(0, 0, 0, dp(16));
         LinearLayout actions = new LinearLayout(getContext());

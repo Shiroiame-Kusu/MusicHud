@@ -85,7 +85,7 @@ public class MusicService {
                             NetworkManager.sendToServer(new AddPlaylistToIdlePlaySourceMessage(id));
                             getInstance().loadPlaylistDetail(id).thenAcceptAsync(playlist1 -> {
                                 getInstance().addToIdlePlaySource(playlist1);
-                            });
+                            }, MusicHud.EXECUTOR);
                         } catch (Exception e) {
                             logger.error("Failed to load idle play source playlist with id:" + id, e);
                         }
@@ -215,7 +215,7 @@ public class MusicService {
 
     public void loadResource(MusicDetail musicDetail) {
         if (ClientConfigDefinition.enable.get()) {
-            ImageUtils.downloadAsync(musicDetail.getAlbum().getPicUrl());
+            ImageUtils.downloadAsync(musicDetail.getAlbum().getThumbnailPicUrl(200));
         }
     }
 

@@ -190,7 +190,7 @@ public class HudRendererManager {
         PLAY_TIME_RENDERER.configureLayout(playTimeLayout, Theme.SECONDARY_TEXT_COLOR, TextRenderer.Position.RIGHT);
 
         HudRenderData.getTransitionStatus().setOnCompleteCallback(nextData -> {
-            bgImage.currentBlurredLocation = nextData.nextedBlurred();
+            bgImage.currentBlurredLocation = nextData.nextBlurred();
             bgImage.currentUnblurredLocation = nextData.nextUnblurred();
             bgImage.currentAspect = nextData.nextAspect();
         });
@@ -253,19 +253,21 @@ public class HudRendererManager {
             SUB_LYRICS_RENDERER.setText("");
             PlayerInfo pusherPlayerInfo = this.nowPlayingInfo.getPusherPlayerInfo();
             PLAYER_HEAD_RENDERER.setPlayerInfo(pusherPlayerInfo);
-            ImageUtils.downloadAsync(musicDetail.getAlbum().getPicUrl())
+            ImageUtils.downloadAsync(musicDetail.getAlbum().getThumbnailPicUrl(200))
                     .thenAccept(imageTextureData -> {
                         imageTextureData.register().thenAcceptAsync((v) -> {
-                            MusicHud.EXECUTOR.execute(() -> {
-                                ImageTextureData blurredImageTextureData = ImageBlurPostProcessor.blur(imageTextureData, 256);
-                                blurredImageTextureData.register().thenAccept((v1) -> Minecraft.getInstance().execute(() -> {
-                                    if (musicDetail.equals(nowPlayingInfo.getCurrentlyPlayingMusicDetail())) {
-                                        var nextData = new TransitionNextData(blurredImageTextureData.getLocation(), imageTextureData.getLocation(), 1f);
-                                        HudRenderData.getTransitionStatus().startTransition(nextData);
-                                    }
-                                }));
-                            });
-                        });
+                            ImageTextureData blurredImageTextureData = ImageBlurPostProcessor.blur(imageTextureData, 100);
+                            blurredImageTextureData.register().thenAccept((v1) -> Minecraft.getInstance().execute(() -> {
+                                if (musicDetail.equals(nowPlayingInfo.getCurrentlyPlayingMusicDetail())) {
+                                    var nextData = new TransitionNextData(blurredImageTextureData.getLocation(), imageTextureData.getLocation(), 1f);
+                                    HudRenderData.getTransitionStatus().startTransition(nextData);
+                                }
+                            }));
+                        }, MusicHud.EXECUTOR);
+                    }).exceptionally(e -> {
+                        var nextData = new TransitionNextData(null, null, 1f);
+                        HudRenderData.getTransitionStatus().startTransition(nextData);
+                        return null;
                     });
         }
     }

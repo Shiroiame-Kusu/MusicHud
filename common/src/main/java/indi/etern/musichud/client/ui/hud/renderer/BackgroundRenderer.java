@@ -55,7 +55,7 @@ public class BackgroundRenderer {
 
         var transitionStatus = HudRenderData.getTransitionStatus();
         var nextData = transitionStatus.getNextData();
-        ResourceLocation nextBlurredLocation = nextData == null ? null : nextData.nextedBlurred();
+        ResourceLocation nextBlurredLocation = nextData == null ? null : nextData.nextBlurred();
         GpuTextureView currentTextureView = getTextureView(bgImage.currentBlurredLocation);
         GpuTextureView nextTextureView = getTextureView(nextBlurredLocation);
         GpuTextureView nextView = transitionStatus.isTransitioning() ?

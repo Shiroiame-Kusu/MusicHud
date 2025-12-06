@@ -78,7 +78,7 @@ public class MainFragment extends Fragment {
     public static void switchMusic(MusicDetail musicDetail, Queue<LyricLine> lyricLines) {
         if (instance != null) {
             if (musicDetail == null || musicDetail.equals(MusicDetail.NONE)) {
-                instance.albumImage.clear();
+                instance.albumImage.loadUrl(MusicHud.ICON_BASE64);
                 if (!MusicHud.isConnected()) {
                     instance.titleText.setText("未连接");
                 } else if (!ClientConfigDefinition.enable.get()) {
@@ -92,7 +92,7 @@ public class MainFragment extends Fragment {
                 instance.progressText.setText("");
             } else {
                 instance.titleText.setTextColor(Theme.NORMAL_TEXT_COLOR);
-                instance.albumImage.loadUrl(musicDetail.getAlbum().getPicUrl());
+                instance.albumImage.loadUrl(musicDetail.getAlbum().getThumbnailPicUrl(200));
                 instance.titleText.setText(musicDetail.getName());
                 instance.artistsText.setText(musicDetail.getArtists().stream()
                         .map(Artist::getName)
@@ -153,7 +153,7 @@ public class MainFragment extends Fragment {
             var base = new LinearLayout(context);
             int dp24 = base.dp(24);
             int dp32 = base.dp(32);
-            base.setPadding(dp32, dp24, dp24, dp32);
+            base.setPadding(dp32, dp24, dp24, 0);
 
             var baseBackground = new ShapeDrawable();
             baseBackground.setColor(Theme.BASE_BACKGROUND_COLOR);
@@ -162,8 +162,6 @@ public class MainFragment extends Fragment {
             base.setLayoutParams(baseParams);
             base.setOrientation(LinearLayout.HORIZONTAL);
 
-            var scrollView = new NestedScrollView(context);
-            scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
             var routerContainer = new RouterContainer(context);
             routerContainer.setTransitionType(RouterContainer.TransitionType.FADE);
             routerContainer.setAnimationDuration(300);
@@ -184,6 +182,7 @@ public class MainFragment extends Fragment {
                 var side = new LinearLayout(context);
                 side.setOrientation(LinearLayout.VERTICAL);
                 albumImage = new UrlImageView(context);
+                albumImage.loadUrl(MusicHud.ICON_BASE64);
                 //noinspection SuspiciousNameCombination
                 var imageParams = new FrameLayout.LayoutParams(widthDp, widthDp);
                 side.addView(albumImage, imageParams);
@@ -233,12 +232,9 @@ public class MainFragment extends Fragment {
                     switchMusic(musicDetail, playingInfo.getLyricLines());
                 }
             }
-
-            var params = new ScrollView.LayoutParams(MATCH_PARENT, MATCH_PARENT, Gravity.CENTER_HORIZONTAL);
+            var params = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, 0);
             params.setMargins(routerContainer.dp(80), 0, routerContainer.dp(64), 0);
-            scrollView.addView(routerContainer, params);
-            scrollView.setFillViewport(true);
-            base.addView(scrollView, new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+            base.addView(routerContainer, params);
 
             return base;
         } catch (Exception e) {
