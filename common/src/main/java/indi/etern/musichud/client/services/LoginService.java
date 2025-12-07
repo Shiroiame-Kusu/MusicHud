@@ -19,6 +19,7 @@ import indi.etern.musichud.network.pushMessages.c2s.LogoutMessage;
 import indi.etern.musichud.network.pushMessages.s2c.LoginResultMessage;
 import indi.etern.musichud.network.requestResponseCycle.AnonymousLoginRequest;
 import indi.etern.musichud.network.requestResponseCycle.ConnectRequest;
+import indi.etern.musichud.network.requestResponseCycle.CookieLoginRequest;
 import indi.etern.musichud.network.requestResponseCycle.StartQRLoginResponse;
 import lombok.Getter;
 import lombok.Setter;
@@ -137,6 +138,11 @@ public class LoginService {
     }
 
     public void loginAsAnonymousToServer() {
-        NetworkManager.sendToServer(AnonymousLoginRequest.REQUEST);
+        LoginCookieInfo loginCookieInfo = LoginCookieInfo.clientCurrentCookie();
+        if (loginCookieInfo.type() == LoginType.ANONYMOUS) {
+            NetworkManager.sendToServer(new CookieLoginRequest(loginCookieInfo, false));
+        } else {
+            NetworkManager.sendToServer(AnonymousLoginRequest.REQUEST);
+        }
     }
 }

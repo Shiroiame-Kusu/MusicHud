@@ -2,6 +2,7 @@ package indi.etern.musichud.network.requestResponseCycle;
 
 import dev.architectury.networking.NetworkManager;
 import indi.etern.musichud.beans.login.LoginCookieInfo;
+import indi.etern.musichud.beans.login.LoginType;
 import indi.etern.musichud.beans.user.AccountDetail;
 import indi.etern.musichud.beans.user.Profile;
 import indi.etern.musichud.interfaces.CommonRegister;
@@ -44,7 +45,7 @@ public record CookieLoginRequest(LoginCookieInfo loginCookieInfo, boolean tryRef
                                         )
                                 );
                             }
-                        } else {
+                        } else if (loginRequest.loginCookieInfo.type() != LoginType.ANONYMOUS) {
                             try {
                                 AccountDetail accountDetail =
                                         loginApiService.loadUserProfile(serverPlayer, loginRequest.loginCookieInfo);

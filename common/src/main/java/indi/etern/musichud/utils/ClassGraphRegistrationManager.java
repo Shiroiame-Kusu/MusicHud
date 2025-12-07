@@ -4,6 +4,7 @@ import dev.architectury.platform.Platform;
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.interfaces.*;
 import io.github.classgraph.*;
+import lombok.SneakyThrows;
 import net.fabricmc.api.EnvType;
 
 import java.lang.reflect.InvocationTargetException;
@@ -46,6 +47,7 @@ public class ClassGraphRegistrationManager {
         } // ScanResult 会自动关闭
     }
 
+    @SneakyThrows
     private static <T extends Register> void registerClassesImplementing(Class<T> interfaceType, ScanResult scanResult, String typeName) {
         // 获取所有实现了目标接口的类信息
         var allClasses = scanResult.getClassesImplementing(interfaceType.getName());
@@ -65,8 +67,9 @@ public class ClassGraphRegistrationManager {
                         registeredSet.add(classInfo);
                         MusicHud.LOGGER.debug("Successfully registered (ClassGraph): {}", getClassName(clazz));
                     }
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     MusicHud.LOGGER.error("Failed to register: {}", classInfo.getName(), e);
+                    throw e;
                 }
             }
         }
@@ -112,8 +115,9 @@ public class ClassGraphRegistrationManager {
                     }
                 });
                 MusicHud.LOGGER.debug("Successfully loaded (ClassGraph): {}", clazz.getCanonicalName());
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 MusicHud.LOGGER.error("Failed to load: {}", classInfo.getName(), e);
+                throw e;
             }
         }
     }

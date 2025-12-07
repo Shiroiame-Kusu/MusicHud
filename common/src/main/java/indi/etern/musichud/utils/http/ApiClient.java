@@ -22,9 +22,6 @@ public class ApiClient {
     public static final HttpClient CLIENT;
     private static final int maxTrial = 5;
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record CodeOnlyResponse(int code) {}
-
     static {
         CLIENT = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
@@ -37,8 +34,9 @@ public class ApiClient {
     public static <T> T post(ServerApiMeta.UrlMeta<T> urlMeta, Object requestBody, String formattedUserCookie) {
         T t = null;
         int trial = 0;
-        while (t == null && trial++ < maxTrial) {
+        do {
             try {
+                trial++;
                 if (trial != 1) {
                     Thread.sleep(500);
                 }
@@ -77,7 +75,7 @@ public class ApiClient {
                     HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                     String string = response.body().toString();
                     var codeOnlyResponse = JsonUtil.objectMapper.readValue(string, CodeOnlyResponse.class);
-                    if (codeOnlyResponse.code == 200 || trial == maxTrial) {
+                    if (codeOnlyResponse.code == 200 || trial == maxTrial || !urlMeta.autoRetry()) {
                         t = JsonUtil.objectMapper.readValue(string, urlMeta.responseType());
                     }
                 } catch (ConnectException e) {
@@ -87,7 +85,7 @@ public class ApiClient {
             } catch (ConnectException e) {
                 throw new ApiException(e);
             }
-        }
+        } while (t == null && trial < maxTrial && urlMeta.autoRetry());
         if (t instanceof PostProcessable postProcessable) {
             postProcessable.postProcess();
         }
@@ -98,8 +96,9 @@ public class ApiClient {
     public static <T> T get(ServerApiMeta.UrlMeta<T> urlMeta, String formattedUserCookie) {
         T t = null;
         int trial = 0;
-        while (t == null && trial++ < maxTrial) {
+        do {
             try {
+                trial++;
                 if (trial != 1) {
                     Thread.sleep(500);
                 }
@@ -117,7 +116,7 @@ public class ApiClient {
                     HttpResponse<?> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                     String string = response.body().toString();
                     var codeOnlyResponse = JsonUtil.objectMapper.readValue(string, CodeOnlyResponse.class);
-                    if (codeOnlyResponse.code == 200 || trial == maxTrial) {
+                    if (codeOnlyResponse.code == 200 || trial == maxTrial || !urlMeta.autoRetry()) {
                         t = JsonUtil.objectMapper.readValue(string, urlMeta.responseType());
                     }
                 } catch (ConnectException e) {
@@ -127,10 +126,14 @@ public class ApiClient {
             } catch (ConnectException e) {
                 throw new ApiException(e);
             }
-        }
+        } while (t == null && trial < maxTrial && urlMeta.autoRetry());
         if (t instanceof PostProcessable postProcessable) {
             postProcessable.postProcess();
         }
         return t;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record CodeOnlyResponse(int code) {
     }
 }
