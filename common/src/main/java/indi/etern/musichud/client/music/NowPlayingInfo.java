@@ -16,7 +16,7 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
@@ -37,7 +37,7 @@ public class NowPlayingInfo {
     @Getter
     private MusicResourceInfo currentlyPlayingMusicResourceInfo;
     private volatile Duration musicDuration = null;
-    private volatile LocalDateTime musicStartTime = null;
+    private volatile ZonedDateTime musicStartTime = null;
     private ArrayDeque<LyricLine> lyricLines;
     @Getter
     private LyricLine currentLyricLine;
@@ -58,15 +58,20 @@ public class NowPlayingInfo {
         if (musicDuration == null || musicStartTime == null) {
             return 0.0f;
         }
-        return (float) Duration.between(musicStartTime, LocalDateTime.now()).toMillis() / musicDuration.toMillis();
+        return (float) Duration.between(musicStartTime, ZonedDateTime.now()).toMillis() / musicDuration.toMillis();
     }
 
-    public void switchMusic(MusicDetail musicDetail, MusicResourceInfo resourceInfo, LocalDateTime musicStartTime) {
+    public void switchMusic(MusicDetail musicDetail, MusicResourceInfo resourceInfo, ZonedDateTime musicStartTime) {
         MusicDetail previous = currentlyPlayingMusicDetail;
         currentlyPlayingMusicDetail = musicDetail;
         currentlyPlayingMusicResourceInfo = resourceInfo;
-        this.musicDuration = Duration.ofMillis(musicDetail.getDurationMillis());
-        this.musicStartTime = musicStartTime;
+        if (!resourceInfo.equals(MusicResourceInfo.NONE)) {
+            musicDuration = Duration.ofMillis(musicDetail.getDurationMillis());
+            this.musicStartTime = musicStartTime;
+        } else {
+            musicDuration = null;
+            this.musicStartTime = null;
+        }
         LyricInfo lyricInfo = resourceInfo.getLyricInfo();
         Queue<LyricLine> lyricLines = null;
         if (!lyricInfo.equals(LyricInfo.NONE)) {
@@ -94,7 +99,7 @@ public class NowPlayingInfo {
                     LyricLine line = finalLyricLines.peek();
                     if (line != null) {
                         if (line.getStartTime() != null) {
-                            if (LocalDateTime.now().isAfter(musicStartTime.plus(line.getStartTime()))) {
+                            if (ZonedDateTime.now().isAfter(musicStartTime.plus(line.getStartTime()))) {
                                 finalLyricLines.poll();
                                 currentLyricLine = line;
                                 LyricLine next = finalLyricLines.peek();
@@ -102,7 +107,7 @@ public class NowPlayingInfo {
                                     callLyricsUpdateListeners(line);
                                     logger.debug("lyricsUpdater stopped due to no more lyrics");
                                     break;
-                                } else if (LocalDateTime.now().isBefore(musicStartTime.plus(next.getStartTime()))) {
+                                } else if (ZonedDateTime.now().isBefore(musicStartTime.plus(next.getStartTime()))) {
                                     callLyricsUpdateListeners(line);
                                     Duration startTime = next.getStartTime();
                                     if (sleepUntil(musicStartTime, startTime)) break;
@@ -134,8 +139,8 @@ public class NowPlayingInfo {
         });
     }
 
-    private boolean sleepUntil(LocalDateTime musicStartTime, Duration startTime) {
-        Duration between = Duration.between(LocalDateTime.now(), musicStartTime.plus(startTime));
+    private boolean sleepUntil(ZonedDateTime musicStartTime, Duration startTime) {
+        Duration between = Duration.between(ZonedDateTime.now(), musicStartTime.plus(startTime));
         if (between.isPositive()) {
             try {
                 Thread.sleep(between);
@@ -147,11 +152,11 @@ public class NowPlayingInfo {
         return false;
     }
 
-    public Duration getPlayedDuration() {
+    public Duration getPlayedDuration() {//FIXME
         if (musicStartTime == null) {
             return Duration.ZERO;
         }
-        Duration startedPlayingDuration = Duration.between(musicStartTime, LocalDateTime.now());
+        Duration startedPlayingDuration = Duration.between(musicStartTime, ZonedDateTime.now());
         if (startedPlayingDuration.compareTo(musicDuration) > 0) {
             return musicDuration;
         } else {
@@ -163,7 +168,7 @@ public class NowPlayingInfo {
         if (musicStartTime == null) {
             return true;
         }
-        Duration startedPlayingDuration = Duration.between(musicStartTime, LocalDateTime.now());
+        Duration startedPlayingDuration = Duration.between(musicStartTime, ZonedDateTime.now());
         return startedPlayingDuration.compareTo(musicDuration) > 0;
     }
 

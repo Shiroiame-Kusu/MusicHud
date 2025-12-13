@@ -213,7 +213,7 @@ public class AccountView extends LinearLayout {
             layout2.addView(idlePlaylistCardsList, params4);
 
             accountService.loadUserPlaylist().thenAcceptAsync(playlists -> {
-                if (getContext() != null) {
+                if (context != null) {
                     MuiModApi.postToUiThread(() -> {
                         for (Playlist playlist : playlists) {
                             playlistCards.addView(new PlaylistCard(context, playlist));
@@ -224,9 +224,11 @@ public class AccountView extends LinearLayout {
             }, MusicHud.EXECUTOR);
 
             musicService.getIdlePlaylists().forEach(playlist -> {
-                PlaylistCard child = new PlaylistCard(context, playlist);
-                idlePlaylistCardsList.addView(child);
-                idlePlaylistCardMap.put(playlist, child);
+                if (context != null) {
+                    PlaylistCard child = new PlaylistCard(context, playlist);
+                    idlePlaylistCardsList.addView(child);
+                    idlePlaylistCardMap.put(playlist, child);
+                }
             });
 
             Consumer<Playlist> addListener = playlist -> {

@@ -71,8 +71,8 @@ public final class ImageTextureData implements Closeable {
                         registered = true;
                     }).thenAcceptAsync((v) -> {
                         try {
-                            // approximately 1 game tick
-                            Thread.sleep(Duration.of(50, ChronoUnit.MILLIS));//TODO better solution
+                            // approximately 2 game tick
+                            Thread.sleep(Duration.of(100, ChronoUnit.MILLIS));//TODO better solution
                         } catch (InterruptedException ignored) {
                         } finally {
                             completableFuture.complete(null);

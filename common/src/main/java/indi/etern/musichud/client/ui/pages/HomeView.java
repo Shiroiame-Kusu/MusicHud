@@ -201,7 +201,7 @@ public class HomeView extends LinearLayout {
             removeButton.setOnClickListener(v -> {
                 MusicService.getInstance().sendRemoveMusicFromQueue(playQueueView.indexOfChild(item), musicDetail);
             });
-            actions.addView(removeButton, new LayoutParams(WRAP_CONTENT, dp(52)));
+            actions.addView(removeButton, new LayoutParams(WRAP_CONTENT, dp(MusicListItem.imageSize)));
         }
         item.addView(actions);
         item.setLayoutParams(layoutParams);

@@ -2,7 +2,6 @@ package indi.etern.musichud.network.pushMessages.s2c;
 
 import indi.etern.musichud.MusicHud;
 import indi.etern.musichud.beans.music.MusicDetail;
-import indi.etern.musichud.beans.music.MusicResourceInfo;
 import indi.etern.musichud.client.services.MusicService;
 import indi.etern.musichud.interfaces.CommonRegister;
 import indi.etern.musichud.interfaces.ForceLoad;
@@ -12,13 +11,13 @@ import indi.etern.musichud.network.S2CPayload;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
-public record SyncCurrentPlayingMessage(MusicDetail currentPlaying, LocalDateTime startTime) implements S2CPayload {
+public record SyncCurrentPlayingMessage(MusicDetail currentPlaying, ZonedDateTime startTime) implements S2CPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, SyncCurrentPlayingMessage> CODEC = StreamCodec.composite(
             MusicDetail.CODEC,
             SyncCurrentPlayingMessage::currentPlaying,
-            Codecs.LOCAL_DATE_TIME,
+            Codecs.ZONED_DATE_TIME,
             SyncCurrentPlayingMessage::startTime,
             SyncCurrentPlayingMessage::new
     );

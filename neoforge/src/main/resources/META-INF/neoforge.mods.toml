@@ -1,17 +1,16 @@
 modLoader = "javafml"
 loaderVersion = "[9,)"
-#issueTrackerURL = ""
-license = "Insert License Here"
+issueTrackerURL = "https://github.com/Etern-34520/MusicHud/issues"
+license = "LGPL-3.0"
 
 [[mods]]
 modId = "music_hud"
 version = "${version}"
-displayName = "music hud"
-authors = "Me!"
-description = '''
-This is an example description! Tell everyone what your mod is about!
-'''
-#logoFile = ""
+displayName = "Music Hud"
+authors = "Etern"
+description = "A mod allow to play music from NCM in whole server "
+displayURL = "https://github.com/Etern-34520/MusicHud"
+logoFile = "assets/music_hud/icon.png"
 
 [[dependencies.music_hud]]
 modId = "neoforge"

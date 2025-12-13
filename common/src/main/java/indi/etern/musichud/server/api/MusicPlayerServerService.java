@@ -17,11 +17,12 @@ import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.Logger;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 public class MusicPlayerServerService {
     private static volatile MusicPlayerServerService instance;
@@ -36,7 +37,7 @@ public class MusicPlayerServerService {
     @Getter
     private volatile MusicDetail currentMusicDetail = MusicDetail.NONE;
     @Getter
-    private volatile LocalDateTime nowPlayingStartTime = LocalDateTime.MIN;
+    private volatile ZonedDateTime nowPlayingStartTime = ZonedDateTime.of(LocalDateTime.MIN, ZoneId.systemDefault());
 
     public MusicPlayerServerService() {
         updateContinuable(!LoginApiService.getInstance().getLoginStateChangeListeners().isEmpty());
@@ -119,7 +120,7 @@ public class MusicPlayerServerService {
                                 );
                                 haveSentMusic = true;
                                 currentMusicDetail = switchedToPlay;
-                                nowPlayingStartTime = LocalDateTime.now();
+                                nowPlayingStartTime = ZonedDateTime.now();
                                 logger.info("Switched to music: {} (ID: {})", switchedToPlay.getName(), switchedToPlay.getId());
                                 try {
                                     //noinspection BusyWait
@@ -148,7 +149,7 @@ public class MusicPlayerServerService {
                     }
 
                     private Optional<MusicDetail> getRandomMusicFromIdleSources() {
-                        if (idlePlaySources.isEmpty()) {
+                         if (idlePlaySources.isEmpty()) {
                             return Optional.empty();
                         }
 

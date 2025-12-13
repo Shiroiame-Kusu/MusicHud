@@ -14,10 +14,11 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.apache.logging.log4j.Logger;
 
-import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
-public record LoginCookieInfo(LoginType type, String rawCookie, LocalDateTime generateTime) {
+public record LoginCookieInfo(LoginType type, String rawCookie, ZonedDateTime generateTime) {
     private static final Logger logger = MusicHud.getLogger(LoginCookieInfo.class);
     public static final StreamCodec<ByteBuf, LoginCookieInfo> STREAM_CODEC =
             StreamCodec.composite(
@@ -25,14 +26,14 @@ public record LoginCookieInfo(LoginType type, String rawCookie, LocalDateTime ge
                     LoginCookieInfo::type,
                     ByteBufCodecs.STRING_UTF8,
                     LoginCookieInfo::rawCookie,
-                    Codecs.LOCAL_DATE_TIME,
+                    Codecs.ZONED_DATE_TIME,
                     LoginCookieInfo::generateTime,
                     LoginCookieInfo::new
             );
     public static final LoginCookieInfo UNLOGGED = new LoginCookieInfo(
             LoginType.UNLOGGED,
             "",
-            LocalDateTime.of(114514, 1, 9, 19, 8, 10)
+            ZonedDateTime.of(114514, 1, 9, 19, 8, 10, 0, ZoneId.systemDefault())
     );
     private static final Period refreshInterval = Period.of(0,0,1);
     public static LoginCookieInfo fromJson(String json) {
@@ -63,7 +64,7 @@ public record LoginCookieInfo(LoginType type, String rawCookie, LocalDateTime ge
 
     public static void refreshIfNecessaryAndRegisterToServer() {
         LoginCookieInfo loginCookieInfo = LoginCookieInfo.clientCurrentCookie();
-        if (loginCookieInfo.generateTime.plus(refreshInterval).isBefore(LocalDateTime.now())) {
+        if (loginCookieInfo.generateTime.plus(refreshInterval).isBefore(ZonedDateTime.now())) {
             logger.info("Refreshing Login Cookie");
             NetworkManager.sendToServer(new CookieLoginRequest(loginCookieInfo, true));
         } else {

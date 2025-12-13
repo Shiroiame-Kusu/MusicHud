@@ -28,7 +28,7 @@ import lombok.Getter;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -195,13 +195,13 @@ public class MusicService {
         NetworkManager.sendToServer(new ClientRemoveMusicFromQueueMessage(index, musicDetail.getId()));
     }
 
-    public void switchMusic(MusicDetail musicDetail, MusicResourceInfo resourceInfo, LocalDateTime serverStartTime) {
+    public synchronized void switchMusic(MusicDetail musicDetail, MusicResourceInfo resourceInfo, ZonedDateTime serverStartTime) {
         if (ClientConfigDefinition.enable.get()) {
             if (!musicDetail.equals(MusicDetail.NONE)) {
                 loadResource(musicDetail);
                 StreamAudioPlayer streamAudioPlayer = StreamAudioPlayer.getInstance();
-                streamAudioPlayer.playAsyncFromUrl(resourceInfo.getUrl(), resourceInfo.getType(), serverStartTime).thenAccept(localDateTime -> {
-                    NowPlayingInfo.getInstance().switchMusic(musicDetail, resourceInfo, localDateTime);
+                streamAudioPlayer.playAsyncFromUrl(resourceInfo.getUrl(), resourceInfo.getType(), serverStartTime).thenAccept(zonedDateTime -> {
+                    NowPlayingInfo.getInstance().switchMusic(musicDetail, resourceInfo, zonedDateTime);
                 }).exceptionally(e -> {
                     return null;//TODO display error in hud
                 });

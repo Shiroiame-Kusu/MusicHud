@@ -124,8 +124,8 @@ public class MusicApiService {
             var response = ApiClient.post(ServerApiMeta.Music.URL, request, loginApiService.randomVipCookieOr(null));
             if (response.code == 200) {
                 MusicResourceInfo musicResourceInfo = response.data.getFirst();
-                // 30 seconds trial
-                if (musicResourceInfo.getTime() == 30040) {
+                // 30 seconds trial or have no copyright
+                if (musicResourceInfo.getTime() == 30040 || musicResourceInfo.getUrl() == null) {
                     musicResourceInfo = getMusicResourceInfoFromMatcher(musicDetail);
                 }
                 completeLyricInfo(musicDetail, musicResourceInfo);

@@ -45,10 +45,6 @@ dependencies {
 
     modImplementation "com.terraformersmc:modmenu:$rootProject.modmenu_version"
 
-    // ModernUI Core
-//    implementation "icyllis.modernui:ModernUI-Core:${modernui_version}"
-    // ModernUI Markflow (必需)
-//    implementation "icyllis.modernui:ModernUI-Markflow:${modernui_version}"
     // ModernUI Fabric
     modImplementation("icyllis.modernui:ModernUI-Fabric:${rootProject.minecraft_version}-${rootProject.modernui_version}.+")
 
@@ -84,8 +80,6 @@ remapJar {
 }
 
 loom {
-//    accessWidenerPath = project(":common").loom.accessWidenerPath
-
     runs {
         client {
             runDir = "run/client"

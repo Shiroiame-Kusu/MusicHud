@@ -18,7 +18,7 @@ import java.io.InputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -35,7 +35,6 @@ public class StreamAudioPlayer {
 
     private final int[] buffers = new int[BUFFER_COUNT];
     private final AtomicBoolean initialized = new AtomicBoolean(false);
-    private final Minecraft minecraft = Minecraft.getInstance();
     private final AtomicReference<Status> status = new AtomicReference<>(Status.IDLE);
     private final int retryDelayMs = 1000;
     private final BlockingQueue<byte[]> audioBuffer = new LinkedBlockingQueue<>(30); // 最大30个数据块的缓冲区
@@ -52,9 +51,7 @@ public class StreamAudioPlayer {
     private volatile AudioDecoder currentDecoder;
     private volatile long bytesPerSecond = 0;
     private volatile boolean isBuffering = false;
-    private volatile LocalDateTime serverStartTime;
-    private LocalDateTime startLoadingTime;
-    private Duration loadingDuration = Duration.ZERO;
+    private volatile ZonedDateTime serverStartTime;
 
     public static StreamAudioPlayer getInstance() {
         if (instance == null) {
@@ -98,7 +95,7 @@ public class StreamAudioPlayer {
         }
     }
 
-    public CompletableFuture<LocalDateTime> playAsyncFromUrl(String urlString, FormatType formatType, LocalDateTime startTime) {
+    public CompletableFuture<ZonedDateTime> playAsyncFromUrl(String urlString, FormatType formatType, ZonedDateTime startTime) {
         synchronized (StreamAudioPlayer.class) {
             try {
                 stop(); // 先停止之前的播放
@@ -123,42 +120,41 @@ public class StreamAudioPlayer {
                 cleanup();
                 return CompletableFuture.failedFuture(e);
             }
-        }
 
-        // 清空缓冲区
-        audioBuffer.clear();
-        totalBufferedBytes.set(0);
-        shouldContinuePlaying = true;
-        shouldContinueDownloading = true;
-        serverStartTime = startTime == null ? LocalDateTime.now() : startTime;
+            // 清空缓冲区
+            audioBuffer.clear();
+            totalBufferedBytes.set(0);
+            shouldContinuePlaying = true;
+            shouldContinueDownloading = true;
+            serverStartTime = startTime == null ? ZonedDateTime.now() : startTime;
 
-        CompletableFuture<LocalDateTime> startPlayingFuture = new CompletableFuture<>();
+            CompletableFuture<ZonedDateTime> startPlayingFuture = new CompletableFuture<>();
 
-        startLoadingTime = LocalDateTime.now();
-        downloadFuture = MusicHud.EXECUTOR.submit(() -> {
-            try {
-                downloadAudioWithRetry(urlString, formatType, startTime != null);
-            } catch (Exception e) {
-                LOGGER.error("Download thread error", e);
-                setStatus(Status.ERROR);
-            }
-        });
-
-        playingFuture = MusicHud.EXECUTOR.submit(() -> {
-            try {
-                playAudioWithRetry(startPlayingFuture);
-            } catch (Exception e) {
-                LOGGER.error("Play thread error", e);
-                if (!startPlayingFuture.isDone()) {
-                    startPlayingFuture.completeExceptionally(e);
+            downloadFuture = MusicHud.EXECUTOR.submit(() -> {
+                try {
+                    downloadAudioWithRetry(urlString, formatType, startTime != null);
+                } catch (Exception e) {
+                    LOGGER.error("Download thread error", e);
+                    setStatus(Status.ERROR);
                 }
-            }
-        });
+            });
 
-        return startPlayingFuture;
+            playingFuture = MusicHud.EXECUTOR.submit(() -> {
+                try {
+                    playAudioWithRetry(startPlayingFuture);
+                } catch (Exception e) {
+                    LOGGER.error("Play thread error", e);
+                    if (!startPlayingFuture.isDone()) {
+                        startPlayingFuture.completeExceptionally(e);
+                    }
+                }
+            });
+
+            return startPlayingFuture;
+        }
     }
 
-    private void playAudioWithRetry(CompletableFuture<LocalDateTime> startPlayingFuture) {
+    private void playAudioWithRetry(CompletableFuture<ZonedDateTime> startPlayingFuture) {
         boolean finished = false;
         try {
             // 等待一些数据缓冲
@@ -196,8 +192,7 @@ public class StreamAudioPlayer {
                         }
                         if (ClientConfigDefinition.disableVanillaMusic.get())
                             Minecraft.getInstance().getSoundManager().stop(null, SoundSource.MUSIC);
-//                        loadingDuration = getLoadingDurationCost(startLoadingTime, LocalDateTime.now());
-                        startPlayingFuture.complete(serverStartTime.plus(loadingDuration));
+                        startPlayingFuture.complete(serverStartTime);
                         setStatus(Status.PLAYING);
                         AL10.alSourcePlay(source);
                         checkALError("alSourcePlay");
@@ -296,16 +291,12 @@ public class StreamAudioPlayer {
             }
         } finally {
             LOGGER.debug("Play task finished");
-//            stop();
         }
-    }
-
-    private Duration getLoadingDurationCost(LocalDateTime startLoadingTime, LocalDateTime loadedTime) {
-        return Duration.between(startLoadingTime, loadedTime);
     }
 
     private void downloadAudioWithRetry(String urlString, FormatType formatType, boolean forceSync) {
         int localRetryCount = 0;
+        boolean forceSyncInternal = forceSync;
 
         while (shouldContinueDownloading) {
             try {
@@ -318,14 +309,13 @@ public class StreamAudioPlayer {
                     setStatus(Status.BUFFERING);
                 }
 
-                if (forceSync) {
+                if (forceSyncInternal) {
                     int bytesPerSample = getBytesPerSample(decoder.getFormat());
                     int bytesPerSecond = decoder.getSampleRate() * bytesPerSample;
 
                     long bytesSkipped = 0;
-                    loadingDuration = getLoadingDurationCost(startLoadingTime, LocalDateTime.now());
                     while (shouldContinueDownloading) {
-                        long seconds = Duration.between(serverStartTime.plus(loadingDuration), LocalDateTime.now()).getSeconds();
+                        long seconds = Duration.between(serverStartTime, ZonedDateTime.now()).getSeconds();
                         long skipBytes = seconds
                                 * bytesPerSecond;
                         if (bytesSkipped >= skipBytes) {
@@ -370,12 +360,12 @@ public class StreamAudioPlayer {
                 // 继续下载剩余数据
                 while (shouldContinueDownloading) {
                     byte[] audioData = decoder.readChunk(BUFFER_SIZE);
-                    if (audioData == null) break;
 
                     // 如果缓冲区已满，等待一会儿
                     while (shouldContinueDownloading && audioBuffer.remainingCapacity() == 0) {
                         Thread.sleep(50);
                     }
+                    if (audioData == null) continue;
 
                     if (!shouldContinueDownloading) break;
 
@@ -394,7 +384,7 @@ public class StreamAudioPlayer {
                 if (e instanceof SocketException e1 && e1.getMessage().equals("Closed by interrupt")) break;
                 LOGGER.error("Download error (attempt {})\n{} : {}", localRetryCount + 1, e.getClass().getSimpleName(), e.getMessage());
 
-                forceSync = true;
+                forceSyncInternal = true;
                 localRetryCount++;
                 setStatus(Status.RETRYING);
 
@@ -414,7 +404,7 @@ public class StreamAudioPlayer {
     }
 
     private void updateVolumeIfNecessary() {
-        float musicVolume = minecraft.options.getSoundSourceVolume(SoundSource.MUSIC);
+        float musicVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MUSIC);
         if (lastVolume != musicVolume && source != 0 && AL10.alIsSource(source)) {
             AL10.alSourcef(source, AL10.AL_GAIN, musicVolume);
             lastVolume = musicVolume;

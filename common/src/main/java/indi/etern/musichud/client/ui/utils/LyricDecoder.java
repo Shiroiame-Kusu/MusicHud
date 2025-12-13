@@ -91,9 +91,15 @@ public class LyricDecoder {
         while (matcher.find()) {
             String item = matcher.group();
             if (!item.contains(".")) {
+                int colonCount = Math.toIntExact(item.chars().filter(c -> c == ':').count());
                 int i = item.lastIndexOf(":");
                 StringBuilder stringBuilder = new StringBuilder(item);
-                stringBuilder.setCharAt(i, '.');
+                if (colonCount == 2) {//FIXME
+                    stringBuilder.setCharAt(i, '.');
+                    item = stringBuilder.toString();
+                } else if (colonCount == 1){
+                    stringBuilder.insert(i+3,".000");//TODO test
+                }
                 item = stringBuilder.toString();
             }
             Matcher timestampMatcher = timestampPattern.matcher(item);
@@ -102,7 +108,7 @@ public class LyricDecoder {
                 int timestampLength = timestamp.length();
                 timestamp = timestamp.substring(1,timestamp.length()-1);
                 try {
-                    Duration duration = parseToDuration(timestamp);
+                    Duration duration = parseToDuration(timestamp);//FIXME
                     matchedConsumer.accept(duration, item.substring(timestampLength));
                 } catch (Exception ignored) {
                     matchedConsumer.accept(null, item.substring(timestampLength));

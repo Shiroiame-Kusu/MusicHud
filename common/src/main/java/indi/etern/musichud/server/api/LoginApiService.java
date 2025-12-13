@@ -18,7 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Consumer;
@@ -107,7 +107,7 @@ public class LoginApiService {
                 null);
         LoginCookieInfo loginCookieInfo;
         if (response.code == 200) {
-            loginCookieInfo = new LoginCookieInfo(LoginType.ANONYMOUS, response.cookie, LocalDateTime.now());
+            loginCookieInfo = new LoginCookieInfo(LoginType.ANONYMOUS, response.cookie, ZonedDateTime.now());
             AccountDetail accountDetail = loadUserProfile(player, loginCookieInfo);
             NetworkManager.sendToPlayer(player, new LoginResultMessage(true, "", loginCookieInfo, accountDetail.getProfile()));
         } else if (sendFail) {
@@ -120,7 +120,7 @@ public class LoginApiService {
         RefreshCookieResponse cookieResponse = ApiClient.post(ServerApiMeta.Login.REFRESH, null, loginCookieInfo.rawCookie());
         LoginCookieInfo refreshedLoginCookieInfo;
         if (cookieResponse.code == 200) {
-            refreshedLoginCookieInfo = new LoginCookieInfo(loginCookieInfo.type(), cookieResponse.cookie, LocalDateTime.now());
+            refreshedLoginCookieInfo = new LoginCookieInfo(loginCookieInfo.type(), cookieResponse.cookie, ZonedDateTime.now());
             AccountDetail accountDetail = loadUserProfile(player, refreshedLoginCookieInfo);
             NetworkManager.sendToPlayer(player, new LoginResultMessage(true, "", refreshedLoginCookieInfo, accountDetail.getProfile()));
         } else {
@@ -181,7 +181,7 @@ public class LoginApiService {
                     logger.debug("QR login polling v-thread for {} got result: {}", player.getName(), qrLoginStatus.code);
                     if (qrLoginStatus.code == QRLoginStatus.Code.SUCCEED) {
                         logger.info("QR login polling v-thread pushing successful result to player: {}", player.getName());
-                        LoginCookieInfo loginCookieInfo = new LoginCookieInfo(LoginType.QR_CODE, qrLoginStatus.cookie, LocalDateTime.now());
+                        LoginCookieInfo loginCookieInfo = new LoginCookieInfo(LoginType.QR_CODE, qrLoginStatus.cookie, ZonedDateTime.now());
                         AccountDetail accountDetail = loadUserProfile(player, loginCookieInfo);
                         NetworkManager.sendToPlayer(player, new LoginResultMessage(true, "", loginCookieInfo, accountDetail.getProfile()));
                     }

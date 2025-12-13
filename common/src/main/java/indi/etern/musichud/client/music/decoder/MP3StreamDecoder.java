@@ -26,9 +26,9 @@ public class MP3StreamDecoder implements AudioDecoder {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             while (output.size() < maxSize) {
                 Header header = bitstream.readFrame();
-                if (header == null) break;
-
-                // 首次解码时获取音频格式信息
+                if (header == null) {
+                    break;
+                }
                 if (!initialized) {
                     this.sampleRate = header.frequency();
                     int channels = header.mode() == Header.SINGLE_CHANNEL ? 1 : 2;

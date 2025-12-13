@@ -1,4 +1,4 @@
-package indi.etern.musichud.neoforge.config;
+package indi.etern.musichud.neoforge;
 
 import icyllis.modernui.mc.MuiModApi;
 import indi.etern.musichud.client.ui.screen.MainFragment;

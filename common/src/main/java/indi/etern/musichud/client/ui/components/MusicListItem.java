@@ -21,7 +21,7 @@ public class MusicListItem extends LinearLayout {
 
     private final DateTimeFormatter timeFormatterWithHour = DateTimeFormatter.ofPattern("HH:mm:ss");
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("mm:ss");
-    private final int imageSize = 52;
+    public static final int imageSize = 54;
     private UrlImageView albumImage;
     private TextView musicName;
     private TextView musicArtistAndAlbum;

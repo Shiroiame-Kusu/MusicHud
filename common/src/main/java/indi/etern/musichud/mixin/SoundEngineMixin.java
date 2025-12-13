@@ -15,7 +15,9 @@ public class SoundEngineMixin {
     @Inject(method = "play(Lnet/minecraft/client/resources/sounds/SoundInstance;)Lnet/minecraft/client/sounds/SoundEngine$PlayResult;",
             at = @At("HEAD"), cancellable = true)
     private void onPlaySound(SoundInstance soundInstance, CallbackInfoReturnable<SoundEngine.PlayResult> cir) {
-        if (soundInstance.getSource() == SoundSource.MUSIC && ClientConfigDefinition.disableVanillaMusic.get()
+        if (ClientConfigDefinition.configure.getRight().isLoaded()
+                && soundInstance.getSource() == SoundSource.MUSIC
+                && ClientConfigDefinition.disableVanillaMusic.get()
                 && StreamAudioPlayer.getInstance().getStatus() == StreamAudioPlayer.Status.PLAYING) {
             cir.cancel();
             cir.setReturnValue(SoundEngine.PlayResult.NOT_STARTED);

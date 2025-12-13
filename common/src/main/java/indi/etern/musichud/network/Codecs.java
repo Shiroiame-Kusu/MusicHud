@@ -6,33 +6,47 @@ import net.minecraft.network.Utf8String;
 import net.minecraft.network.codec.StreamCodec;
 import org.jetbrains.annotations.NotNull;
 
-import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 public class Codecs {
-    public static final StreamCodec<ByteBuf, LocalDateTime> LOCAL_DATE_TIME =
+    public static final StreamCodec<ByteBuf, ZonedDateTime> ZONED_DATE_TIME =
             new StreamCodec<>() {
                 @Override
                 @NotNull
-                public LocalDateTime decode(ByteBuf byteBuf) {
-                    return LocalDateTime.of(
-                            byteBuf.readInt(),
-                            byteBuf.readInt(),
-                            byteBuf.readInt(),
-                            byteBuf.readInt(),
-                            byteBuf.readInt(),
-                            byteBuf.readInt()
+                public ZonedDateTime decode(ByteBuf byteBuf) {
+                    int year = byteBuf.readInt();
+                    int month = byteBuf.readInt();
+                    int dayOfMonth = byteBuf.readInt();
+                    int hour = byteBuf.readInt();
+                    int minute = byteBuf.readInt();
+                    int second = byteBuf.readInt();
+                    int zoneIdLength = byteBuf.readInt();
+                    return ZonedDateTime.of(
+                            year,
+                            month,
+                            dayOfMonth,
+                            hour,
+                            minute,
+                            second,
+                            0,
+                            ZoneId.of(byteBuf.readCharSequence(zoneIdLength, StandardCharsets.UTF_8).toString())
                     );
                 }
 
                 @Override
-                public void encode(ByteBuf byteBuf, LocalDateTime localDateTime) {
-                    byteBuf.writeInt(localDateTime.getYear());
-                    byteBuf.writeInt(localDateTime.getMonthValue());
-                    byteBuf.writeInt(localDateTime.getDayOfMonth());
-                    byteBuf.writeInt(localDateTime.getHour());
-                    byteBuf.writeInt(localDateTime.getMinute());
-                    byteBuf.writeInt(localDateTime.getSecond());
+                public void encode(ByteBuf byteBuf, ZonedDateTime zonedDateTime) {
+                    byteBuf.writeInt(zonedDateTime.getYear());
+                    byteBuf.writeInt(zonedDateTime.getMonthValue());
+                    byteBuf.writeInt(zonedDateTime.getDayOfMonth());
+                    byteBuf.writeInt(zonedDateTime.getHour());
+                    byteBuf.writeInt(zonedDateTime.getMinute());
+                    byteBuf.writeInt(zonedDateTime.getSecond());
+                    String zoneId = zonedDateTime.getZone().getId();
+                    byteBuf.writeInt(zoneId.length());
+                    byteBuf.writeCharSequence(zoneId, StandardCharsets.UTF_8);
                 }
             };
 

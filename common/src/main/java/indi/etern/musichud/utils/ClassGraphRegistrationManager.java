@@ -32,7 +32,10 @@ public class ClassGraphRegistrationManager {
         MusicHud.LOGGER.info("Starting auto-registration with ClassGraph in environment: {}", envType);
 
         try (ScanResult scanResult = new ClassGraph()
-                .enableAllInfo()
+                .enableClassInfo()
+                .enableAnnotationInfo()
+                .enableMethodInfo()
+                .disableModuleScanning()
                 .acceptPackages(BASE_PACKAGE)
                 .scan()) {
 
