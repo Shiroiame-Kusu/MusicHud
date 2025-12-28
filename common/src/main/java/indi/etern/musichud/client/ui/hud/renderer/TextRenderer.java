@@ -18,6 +18,178 @@ public class TextRenderer {
     private int baseColor;
     private Position position;
 
+    // 淡入淡出相关字段
+    private TextStyle nextTextData; // 下一个要显示的文本
+    private float transitionProgress = 1.0f; // 过渡进度 (0.0f - 1.0f)
+    private boolean isTransitioning = false;
+    private float transitionSpeed = 4.0f; // 过渡速度，可以根据需要调整
+    private long lastUpdateTime = System.currentTimeMillis();
+
+    public TextRenderer() {
+    }
+
+    public void configureLayout(Layout layout, int baseColor, Position position) {
+        this.layout = layout;
+        this.baseColor = baseColor;
+        this.position = position;
+    }
+
+    public void setText(String text) {
+        if (text == null) {
+            text = "";
+        }
+
+        if (currentTextData == null) {
+            // 第一次设置文本，直接显示
+            currentTextData = new TextStyle(text, baseColor);
+            transitionProgress = 1.0f;
+            isTransitioning = false;
+            nextTextData = null;
+        } else if (text.equals(currentTextData.text)) {
+            // 文本相同，无需过渡
+            if (isTransitioning) {
+                // 如果正在过渡，直接完成当前过渡
+                currentTextData.text = text;
+                transitionProgress = 1.0f;
+                isTransitioning = false;
+                nextTextData = null;
+            }
+        } else {
+            // 文本不同，开始过渡
+            if (isTransitioning) {
+                // 如果已经在过渡中，有两种处理方式：
+                // 1. 如果新文本与nextTextData相同，保持当前过渡
+                // 2. 如果不同，重置过渡，重新开始
+                if (nextTextData != null && text.equals(nextTextData.text)) {
+                    // 新文本与将要显示的文本相同，保持当前过渡
+                    return;
+                } else {
+                    // 新文本不同，快速完成当前过渡，然后开始新的过渡
+                    if (nextTextData != null) {
+                        // 立即完成当前过渡
+                        currentTextData = nextTextData;
+                    }
+                    // 开始新的过渡
+                    nextTextData = new TextStyle(text, baseColor);
+                    transitionProgress = 0.0f;
+                    lastUpdateTime = System.currentTimeMillis();
+                }
+            } else {
+                // 不在过渡中，开始新过渡
+                nextTextData = new TextStyle(text, baseColor);
+                transitionProgress = 0.0f;
+                isTransitioning = true;
+                lastUpdateTime = System.currentTimeMillis();
+            }
+        }
+    }
+
+    private void updateTransition(DeltaTracker deltaTracker) {
+        if (!isTransitioning) return;
+
+        long currentTime = System.currentTimeMillis();
+        float deltaTime = (currentTime - lastUpdateTime) / 1000.0f; // 转换为秒
+        lastUpdateTime = currentTime;
+
+        transitionProgress += deltaTime * transitionSpeed;
+
+        if (transitionProgress >= 1.0f) {
+            transitionProgress = 1.0f;
+            if (nextTextData != null) {
+                currentTextData = nextTextData;
+            }
+            nextTextData = null;
+            isTransitioning = false;
+        }
+    }
+
+    public void render(GuiGraphics gr, DeltaTracker deltaTracker) {
+        // 更新过渡进度
+        updateTransition(deltaTracker);
+
+        if (currentTextData == null || layout.height <= 0 || layout.width <= 0) {
+            return;
+        }
+
+        float scale = layout.height / 8;
+
+        // 保存当前变换状态
+        gr.pose().pushMatrix();
+
+        // 应用位置和缩放
+        Layout.AbsolutePosition absolutePosition = layout.calcAbsolutePosition(gr);
+
+        // 如果没有在过渡，只渲染当前文本
+        if (!isTransitioning || nextTextData == null) {
+            renderText(gr, currentTextData, absolutePosition, scale, 1.0f);
+        } else {
+            // 渲染淡出的旧文本
+            float oldAlpha = 1.0f - transitionProgress;
+            if (oldAlpha > 0) {
+                renderText(gr, currentTextData, absolutePosition, scale, oldAlpha);
+            }
+
+            // 渲染淡入的新文本
+            float newAlpha = transitionProgress;
+            if (newAlpha > 0) {
+                renderText(gr, nextTextData, absolutePosition, scale, newAlpha);
+            }
+        }
+
+        // 恢复变换状态
+        gr.pose().popMatrix();
+    }
+
+    private void renderText(GuiGraphics gr, TextStyle textData, Layout.AbsolutePosition absolutePosition,
+                            float scale, float alpha) {
+        String text = textData.text;
+        if (text == null || text.isEmpty()) return;
+
+        ModernStringSplitter splitter = TextLayoutEngine.getInstance().getStringSplitter();
+        int maxIndex = splitter.indexByWidth(text, layout.width / scale, Style.EMPTY);
+
+        String trimmedText = text.substring(0, maxIndex);
+        if (maxIndex < text.length()) {
+            int endIndex = trimmedText.length() - 2;
+            if (endIndex <= 3) {
+                return;
+            }
+            trimmedText = trimmedText.substring(0, endIndex) + "...";
+        }
+
+        // 计算带透明度的颜色
+        int color = getColorWithAlpha(textData.baseColor, alpha);
+
+        // 计算位置
+        float x = position.computeX(absolutePosition.x(), scale, trimmedText);
+        gr.pose().translate(x, absolutePosition.y());
+        gr.pose().scale(scale, scale);
+
+        gr.drawString(Minecraft.getInstance().font, trimmedText, 0, 0, color);
+
+        // 重置变换
+        gr.pose().popMatrix();
+        gr.pose().pushMatrix();
+    }
+
+    private int getColorWithAlpha(int baseColor, float alpha) {
+        // baseColor 是 RGB 格式，我们需要添加 Alpha 通道
+        int alphaValue = (int) (alpha * 255);
+        // 确保 alpha 值在 0-255 范围内
+        alphaValue = Math.max(0, Math.min(255, alphaValue));
+        // 将 Alpha 通道合并到颜色中 (ARGB 格式)
+        return (alphaValue << 24) | (baseColor & 0x00FFFFFF);
+    }
+
+    public float calcDisplayWidth() {
+        if (currentTextData == null || currentTextData.text == null || currentTextData.text.isEmpty()) {
+            return 0f;
+        } else {
+            ModernStringSplitter splitter = TextLayoutEngine.getInstance().getStringSplitter();
+            return splitter.measureText(currentTextData.text) * (layout.height / 8f);
+        }
+    }
+
     public enum Position {
         LEFT {
             @Override
@@ -37,71 +209,13 @@ public class TextRenderer {
                 return startX - splitter.measureText(text) * scale;
             }
         };
+
         abstract float computeX(float startX, float scale, String text);
-    }
-
-    public TextRenderer() {
-    }
-
-    public void configureLayout(Layout layout, int baseColor, Position position) {
-        this.layout = layout;
-        this.baseColor = baseColor;
-        this.position = position;
-    }
-
-    public void setText(String text) {
-        if (currentTextData == null) currentTextData = new TextStyle(text, baseColor);
-        else currentTextData.text = text;
-    }
-
-    public void render(GuiGraphics gr, DeltaTracker deltaTracker) {
-        if (currentTextData == null || layout.height <= 0 || layout.width <= 0) {
-            return;
-        }
-
-        float scale = layout.height / 8;
-
-        // 获取文本
-        String text = currentTextData.text;
-        if (text == null || text.isEmpty()) return;
-        ModernStringSplitter splitter = TextLayoutEngine.getInstance().getStringSplitter();
-        int maxIndex = splitter.indexByWidth(text, layout.width / scale, Style.EMPTY);
-
-        String trimmedText = text.substring(0, maxIndex);
-        if (maxIndex < text.length()) {
-            int endIndex = trimmedText.length() - 2;
-            if (endIndex <= 3) {
-                return;
-            }
-            trimmedText = trimmedText.substring(0, endIndex) + "...";
-        }
-
-        // 保存当前变换状态
-        gr.pose().pushMatrix();
-
-        // 应用位置和缩放
-        Layout.AbsolutePosition absolutePosition = layout.calcAbsolutePosition(gr);
-        gr.pose().translate(position.computeX(absolutePosition.x(), scale, trimmedText), absolutePosition.y());
-        gr.pose().scale(scale, scale);
-
-        gr.drawString(Minecraft.getInstance().font, trimmedText, 0, 0, currentTextData.baseColor);
-
-        // 恢复变换状态
-        gr.pose().popMatrix();
-    }
-
-    public float calcDisplayWidth() {
-        if (currentTextData == null || currentTextData.text == null || currentTextData.text.isEmpty()) {
-            return 0f;
-        } else {
-            ModernStringSplitter splitter = TextLayoutEngine.getInstance().getStringSplitter();
-            return splitter.measureText(currentTextData.text) * (layout.height / 8f);
-        }
     }
 
     public static class TextStyle {
         public String text;
-        public final int baseColor;  // RGB 部分
+        public int baseColor;
 
         public TextStyle(String text, int baseColor) {
             this.text = text;

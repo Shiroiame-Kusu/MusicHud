@@ -2,7 +2,9 @@ package indi.etern.musichud.client.ui.pages;
 
 import icyllis.modernui.core.Context;
 import icyllis.modernui.graphics.drawable.Drawable;
+import icyllis.modernui.mc.MinecraftSurfaceView;
 import icyllis.modernui.mc.MuiModApi;
+import icyllis.modernui.mc.ScrollController;
 import icyllis.modernui.text.TextPaint;
 import icyllis.modernui.view.Gravity;
 import icyllis.modernui.view.View;
@@ -35,17 +37,57 @@ import static icyllis.modernui.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 @Slf4j
 public class HomeView extends LinearLayout {
+    private static final int AUTO_RECENTER_DELAY = 3000; // 3秒后自动归位
     @Getter
     private static HomeView instance;
+    private final ScrollController lyricScrollController;
     private TextView lastHighlightLine;
     private LinearLayout lyricLinesView;
     private HashMap<LyricLine, TextView> textViewMap = new LinkedHashMap<>();
+    private ScrollView lyricScrollView;
+    private long lastUserScrollTime = 0;
+    private boolean isUserManuallyScrolling = false;
+    // 标记是否已经初始化滚动
+    private boolean hasInitializedScroll = false;
+    // 标记是否正在进行归位滚动
+    private boolean isRecenterScroll = false;
+    private final Runnable autoRecenterRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // 如果用户已经停止了手动滚动一段时间
+            if (isUserManuallyScrolling && System.currentTimeMillis() - lastUserScrollTime >= AUTO_RECENTER_DELAY) {
+                isUserManuallyScrolling = false;
+                isRecenterScroll = true; // 标记为归位滚动
+
+                // 自动归位到当前歌词
+                LyricLine currentLyric = NowPlayingInfo.getInstance().getCurrentLyricLine();
+                if (currentLyric != null) {
+                    TextView currentTextView = textViewMap.get(currentLyric);
+                    if (currentTextView != null) {
+                        scrollToLyric(currentTextView);
+                    }
+                }
+            } else if (isUserManuallyScrolling) {
+                // 继续等待
+                postDelayed(this, 100);
+            }
+        }
+    };
+    // 用于存储滚动控制器的监听器
+    private ScrollController.IListener scrollListener;
+
+    // 记录当前滚动位置
+    private int currentScrollPosition = 0;
+
+    // 标记是否正在进行自动滚动（由滚动控制器引起的）
+    private boolean isAutoScrolling = false;
     private final Consumer<LyricLine> lyricLineUpdateListener = new Consumer<>() {
         @Override
         public void accept(LyricLine lyricLine) {
             if (lyricLine == null) {
                 if (lastHighlightLine != null) {
                     lastHighlightLine.setTextColor(Theme.SECONDARY_TEXT_COLOR);
+                    lastHighlightLine.setTextStyle(TextPaint.NORMAL);
                 }
             } else {
                 TextView lineTextView = textViewMap.get(lyricLine);
@@ -53,20 +95,72 @@ public class HomeView extends LinearLayout {
                     MuiModApi.postToUiThread(() -> {
                         lineTextView.setTextColor(Theme.EMPHASIZE_TEXT_COLOR);
                         lineTextView.setTextStyle(TextPaint.BOLD);
-                        if (lastHighlightLine != null) {
+                        if (lastHighlightLine != null && lastHighlightLine != lineTextView) {
                             lastHighlightLine.setTextColor(Theme.SECONDARY_TEXT_COLOR);
                             lastHighlightLine.setTextStyle(TextPaint.NORMAL);
                         }
                         lastHighlightLine = lineTextView;
+
+                        // 只有在用户没有手动滚动时才自动滚动
+                        if (!isUserManuallyScrolling) {
+                            scrollToLyric(lineTextView);
+                        }
                     });
                 }
             }
         }
     };
+    private volatile MinecraftSurfaceView scrollUpdateSurfaceView;
 
     public HomeView(Context context) {
         super(context);
+
+        // 初始化滚动控制器的监听器
+        scrollListener = (controller, amount) -> {
+            if (lyricScrollView != null) {
+                lyricScrollView.scrollTo(0, (int) amount);
+                currentScrollPosition = (int) amount;
+            }
+        };
+
+        // 初始化滚动控制器
+        lyricScrollController = new ScrollController(scrollListener);
+
         refresh();
+    }
+
+    private void setupScrollListener() {
+        if (lyricScrollView == null) return;
+
+        lyricScrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (scrollY != oldScrollY) {
+                currentScrollPosition = scrollY;
+
+                // 检查是否是滚动控制器引起的滚动
+                if (isAutoScrolling) {
+                    // 这是自动滚动，不标记为用户手动滚动
+                    return;
+                }
+
+                long currentTime = System.currentTimeMillis();
+
+                isUserManuallyScrolling = true;
+                lastUserScrollTime = currentTime;
+                isRecenterScroll = false; // 重置归位标记
+
+                // 取消之前的自动归位计时器
+                removeCallbacks(autoRecenterRunnable);
+
+                // 设置新的自动归位计时器
+                postDelayed(autoRecenterRunnable, AUTO_RECENTER_DELAY);
+
+                // 用户滚动时，如果正在自动滚动，停止自动滚动
+                if (lyricScrollController.isScrolling()) {
+                    lyricScrollController.abortAnimation();
+                    isAutoScrolling = false;
+                }
+            }
+        });
     }
 
     public void refresh() {
@@ -95,7 +189,7 @@ public class HomeView extends LinearLayout {
         {
             LinearLayout lyricsView = new LinearLayout(context);
             lyricsView.setOrientation(VERTICAL);
-            LayoutParams lyricsViewParams = new LayoutParams(0, MATCH_PARENT, 2);
+            LayoutParams lyricsViewParams = new LayoutParams(0, MATCH_PARENT, 1);
             addView(lyricsView, lyricsViewParams);
 
             TextView title = new TextView(context);
@@ -105,19 +199,31 @@ public class HomeView extends LinearLayout {
             params.setMargins(0, 0, 0, dp(32));
             lyricsView.addView(title, params);
 
-            var scrollView = new ScrollView(context);
-            scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
-            scrollView.setFillViewport(true);
-            lyricsView.addView(scrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+            lyricScrollView = new ScrollView(context);
+            lyricScrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+            lyricScrollView.setVerticalScrollBarEnabled(false);
+            lyricScrollView.setHorizontalScrollBarEnabled(false);
+            lyricScrollView.setFillViewport(true);
+            lyricsView.addView(lyricScrollView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+            LinearLayout lyricLinesWrapper = new LinearLayout(context);
+            lyricLinesWrapper.setOrientation(VERTICAL);
 
             lyricLinesView = new LinearLayout(context);
             lyricLinesView.setOrientation(VERTICAL);
-            scrollView.addView(lyricLinesView, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+            LayoutParams params1 = new LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+            params1.setMargins(0, 0, 0, dp(256));
+            lyricLinesWrapper.addView(lyricLinesView, params1);
+
+            lyricScrollView.addView(lyricLinesWrapper, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+
+            // 重新设置监听器
+            setupScrollListener();
         }
         {
             LinearLayout queueView = new LinearLayout(context);
             queueView.setOrientation(VERTICAL);
-            LayoutParams queueViewParams = new LayoutParams(0, MATCH_PARENT, 3);
+            LayoutParams queueViewParams = new LayoutParams(0, MATCH_PARENT, 1);
             queueViewParams.setMargins(dp(48), 0, 0, 0);
             addView(queueView, queueViewParams);
 
@@ -168,15 +274,195 @@ public class HomeView extends LinearLayout {
             addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
                 @Override
                 public void onViewAttachedToWindow(View v) {
-                    lyricLineUpdateListener.accept(NowPlayingInfo.getInstance().getCurrentLyricLine());
+                    // 视图附加到窗口后，初始化滚动到当前歌词
+                    initializeScrollToCurrentLyric();
+                    // 开始更新滚动控制器
+                    startScrollControllerUpdate();
                 }
 
                 @Override
                 public void onViewDetachedFromWindow(View v) {
                     NowPlayingInfo.getInstance().getLyricLineUpdateListener().remove(lyricLineUpdateListener);
+
+                    // 清理资源
+                    stopScrollControllerUpdate();
+                    if (lyricScrollController != null) {
+                        lyricScrollController.abortAnimation();
+                    }
+                    removeCallbacks(autoRecenterRunnable);
                     instance = null;
                 }
             });
+        }
+    }
+
+    private void initializeScrollToCurrentLyric() {
+        // 重置初始化标记
+        hasInitializedScroll = false;
+
+        // 延迟一点时间确保视图已经完全布局
+//        postDelayed(() -> {
+            LyricLine currentLyric = NowPlayingInfo.getInstance().getCurrentLyricLine();
+            if (currentLyric != null) {
+                TextView currentTextView = textViewMap.get(currentLyric);
+                if (currentTextView != null && !hasInitializedScroll) {
+                    hasInitializedScroll = true;
+                    // 第一次加载直接跳转，不使用平滑滚动
+                    jumpToLyric(currentTextView);
+                }/* else {
+                    hasInitializedScroll = true;
+                    jumpToTop();
+                }*/
+            }
+            // 如果没有当前歌词，但歌词列表不为空，滚动到顶部
+            else if (!textViewMap.isEmpty() && !hasInitializedScroll) {
+                hasInitializedScroll = true;
+                jumpToTop();
+            }
+//        }, 200); // 增加延迟确保布局完成
+    }
+
+    private void jumpToTop() {
+        if (lyricScrollView == null || lyricScrollController == null) return;
+
+        // 停止当前动画
+        lyricScrollController.abortAnimation();
+
+        // 设置滚动范围
+        int scrollViewHeight = lyricScrollView.getHeight();
+        int maxScroll = Math.max(0, lyricLinesView.getHeight() - scrollViewHeight);
+        lyricScrollController.setMaxScroll(maxScroll);
+
+        // 设置起始值和目标值相同，然后直接跳转
+        lyricScrollController.setStartValue(0);
+        lyricScrollController.scrollTo(0, 0); // 0ms立即跳转
+        currentScrollPosition = 0;
+    }
+
+    private void jumpToLyric(TextView targetLyric) {
+        if (lyricScrollView == null || lyricScrollController == null || targetLyric == null) return;
+
+        int scrollViewHeight = lyricScrollView.getHeight();
+        if (scrollViewHeight <= 0) {
+            // 延迟执行，直到视图布局完成
+            post(() -> jumpToLyric(targetLyric));
+            return;
+        }
+
+        // 计算目标歌词在ScrollView中的位置
+        int targetTop = 0;
+        View current = targetLyric;
+
+        while (current != lyricLinesView) {
+            targetTop += current.getTop();
+            if (current.getParent() instanceof View) {
+                current = (View) current.getParent();
+            } else {
+                break;
+            }
+        }
+
+        // 计算目标滚动位置（让歌词位于ScrollView的1/3位置）
+        int targetScrollY = targetTop - scrollViewHeight / 3;
+
+        // 确保滚动位置在有效范围内
+        int maxScroll = Math.max(0, lyricLinesView.getHeight() + dp(256) - scrollViewHeight);
+        targetScrollY = Math.max(0, Math.min(targetScrollY, maxScroll));
+
+        isRecenterScroll = true;
+        isAutoScrolling = true;
+        // 停止当前动画
+        lyricScrollController.abortAnimation();
+
+        // 设置滚动范围
+        lyricScrollController.setMaxScroll(maxScroll);
+
+        // 设置起始值
+        lyricScrollController.setStartValue(targetScrollY);
+
+        // 立即跳转（0ms动画）
+        lyricScrollController.scrollTo(targetScrollY, 0);
+        currentScrollPosition = targetScrollY;
+
+        postDelayed(() -> {
+            isRecenterScroll = false;
+            isAutoScrolling = false;
+        }, 50);
+    }
+
+    private void scrollToLyric(TextView targetLyric) {
+        if (lyricScrollView == null || lyricScrollController == null || targetLyric == null) return;
+
+        int scrollViewHeight = lyricScrollView.getHeight();
+        if (scrollViewHeight <= 0) {
+            // 延迟执行，直到视图布局完成
+            post(() -> scrollToLyric(targetLyric));
+            return;
+        }
+
+        // 计算目标歌词在ScrollView中的位置
+        int targetTop = 0;
+        View current = targetLyric;
+
+        while (current != lyricLinesView) {
+            targetTop += current.getTop();
+            if (current.getParent() instanceof View) {
+                current = (View) current.getParent();
+            } else {
+                break;
+            }
+        }
+
+        // 计算目标滚动位置（让歌词位于ScrollView的1/3位置）
+        int targetScrollY = targetTop - scrollViewHeight / 3;
+
+        // 确保滚动位置在有效范围内
+        int maxScroll = Math.max(0, lyricLinesView.getHeight() + dp(256) - scrollViewHeight);
+        targetScrollY = Math.max(0, Math.min(targetScrollY, maxScroll));
+
+        // 获取当前滚动位置
+        int currentScrollY = currentScrollPosition;
+
+        // 如果已经在目标位置附近，不执行滚动
+        if (Math.abs(targetScrollY - currentScrollY) < 5) {
+            isRecenterScroll = false; // 重置归位标记
+            return;
+        }
+
+        lyricScrollController.scrollTo(currentScrollY, 0);
+        // 停止当前的滚动动画
+        lyricScrollController.abortAnimation();
+
+        // 设置滚动范围
+        lyricScrollController.setMaxScroll(maxScroll);
+
+        // 设置起始值
+        lyricScrollController.setStartValue(currentScrollY);
+
+        // 计算动画时长（基于滚动距离）
+        int scrollDistance = Math.abs(targetScrollY - currentScrollY);
+        int animationDuration;
+
+        // 如果是归位滚动，使用更长的动画时间，更平滑
+        animationDuration = Math.min(300 + scrollDistance / 5, 600);
+
+        // 标记为自动滚动
+        isAutoScrolling = true;
+
+        // 执行平滑滚动
+        lyricScrollController.scrollTo(targetScrollY, animationDuration);
+
+        // 如果是归位滚动，滚动完成后重置标记
+        if (isRecenterScroll) {
+            postDelayed(() -> {
+                isRecenterScroll = false;
+                isAutoScrolling = false;
+                // 归位滚动完成后，确保用户滚动状态重置
+                isUserManuallyScrolling = false;
+            }, animationDuration + 100);
+        } else {
+            // 非归位滚动的自动滚动完成后重置标记
+            postDelayed(() -> isAutoScrolling = false, animationDuration + 100);
         }
     }
 
@@ -211,6 +497,11 @@ public class HomeView extends LinearLayout {
     public void switchMusic(Queue<LyricLine> lyricLines) {
         MuiModApi.postToUiThread(() -> {
             textViewMap.clear();
+            hasInitializedScroll = false;
+            isUserManuallyScrolling = false;
+            isRecenterScroll = false;
+            isAutoScrolling = false;
+
             if (lyricLinesView != null) {
                 lyricLinesView.removeAllViews();
                 if (lyricLines != null) {
@@ -222,7 +513,10 @@ public class HomeView extends LinearLayout {
                             if ((text == null || text.isEmpty()) && (translatedText == null || translatedText.isEmpty())) {
                                 continue;
                             }
+
                             TextView lyricText = new TextView(context);
+                            lyricText.setTextSize(dp(12));
+
                             if (lyricLine.equals(NowPlayingInfo.getInstance().getCurrentLyricLine())) {
                                 lyricText.setTextColor(Theme.EMPHASIZE_TEXT_COLOR);
                                 lyricText.setTextStyle(TextPaint.BOLD);
@@ -233,23 +527,58 @@ public class HomeView extends LinearLayout {
                             lyricText.setText(text == null ? "" : text);
                             textViewMap.put(lyricLine, lyricText);
 
-                            LayoutParams params = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-                            params.setMargins(0, 0, 0, dp(8));
+                            if (translatedText != null && !translatedText.isEmpty()) {
+                                LayoutParams mainParams = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+                                mainParams.setMargins(0, 0, 0, 0);
+                                lyricLinesView.addView(lyricText, mainParams);
 
-                            if (translatedText != null) {
-                                lyricLinesView.addView(lyricText);
                                 TextView subLyricText = new TextView(context);
                                 subLyricText.setTextColor(Theme.SECONDARY_TEXT_COLOR);
                                 subLyricText.setTextSize(dp(8));
                                 subLyricText.setText(translatedText);
-                                lyricLinesView.addView(subLyricText, params);
+
+                                LayoutParams subParams = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+                                subParams.setMargins(0, 0, 0, dp(8));
+                                lyricLinesView.addView(subLyricText, subParams);
                             } else {
+                                LayoutParams params = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+                                params.setMargins(0, 0, 0, dp(8));
                                 lyricLinesView.addView(lyricText, params);
                             }
                         }
                     }
                 }
+
+                lyricLinesView.post(() -> {
+                    lyricLinesView.requestLayout();
+                    lyricScrollView.requestLayout();
+
+                    // 布局完成后，初始化滚动到当前歌词
+                    initializeScrollToCurrentLyric();
+                });
             }
         });
+    }
+
+    private void startScrollControllerUpdate() {
+        post(() -> {
+            lyricScrollController.update(MuiModApi.getElapsedTime());
+            postDelayed(this::startScrollControllerUpdate, 16); // ~60fps
+        });
+    }
+
+    private void stopScrollControllerUpdate() {
+        removeCallbacks(this::startScrollControllerUpdate);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        stopScrollControllerUpdate();
+        if (lyricScrollController != null) {
+            lyricScrollController.abortAnimation();
+        }
+        removeCallbacks(autoRecenterRunnable);
+        instance = null;
     }
 }

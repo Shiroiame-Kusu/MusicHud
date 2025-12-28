@@ -22,6 +22,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class LoginApiService {
@@ -32,7 +33,7 @@ public class LoginApiService {
     Map<ServerPlayer, PlayerLoginInfo> loginedPlayerInfoMap = new HashMap<>();
     @Getter
     Set<Consumer<Map<ServerPlayer, PlayerLoginInfo>>> loginStateChangeListeners = new HashSet<>();
-    String anonymousCookie;
+    volatile String anonymousCookie;
 
     public static LoginApiService getInstance() {
         if (loginApiService == null) {
@@ -61,27 +62,31 @@ public class LoginApiService {
 
     public String getAnonymousCookie() {
         if (anonymousCookie == null) {
-            AnonymousLoginData response = ApiClient.post(
-                    ServerApiMeta.Login.ANONYMOUS,
-                    null,
-                    null);
-            if (response.code == 200) {
-                anonymousCookie = response.cookie;
-            } else {
-                logger.warn("Failed to get an anonymous cookie");
+            synchronized (LoginApiService.class) {
+                if (anonymousCookie == null) {
+                    AnonymousLoginData response = ApiClient.post(
+                            ServerApiMeta.Login.ANONYMOUS,
+                            null,
+                            null);
+                    if (response.code == 200) {
+                        anonymousCookie = response.cookie;
+                    } else {
+                        logger.warn("Failed to get an anonymous cookie");
+                    }
+                }
             }
         }
         return anonymousCookie;
     }
 
-    public String randomVipCookieOr(String defaultCookie) {
+    public String randomVipCookieOr(Supplier<String> defaultCookieSupplier) {
         Comparator<String> randomComparator = (a, b) -> MusicHud.RANDOM.nextInt(-1, 1);
         return loginedPlayerInfoMap.values().stream()
                 .filter(info -> info.getVipType() != null && info.getVipType() == VipType.VIP)
                 .map(info -> info.getLoginCookieInfo().rawCookie())
                 .sorted(randomComparator)
                 .findAny()
-                .orElse(defaultCookie);
+                .orElse(defaultCookieSupplier == null ? null : defaultCookieSupplier.get());
     }
 
     public void joinUnlogged(ServerPlayer serverPlayer) {

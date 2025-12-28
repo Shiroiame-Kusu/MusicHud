@@ -37,7 +37,7 @@ public class LyricDecoder {
             }
             lyricLine.setStartTime(duration);
             if (s != null) {
-                lyricLine.setText(s.trim());
+                lyricLine.setText(s.replace('\u00A0', ' ').trim());
             } else if (lyricLine.getText() != null && !lyricLine.getText().startsWith("}")) {
                 lyricLine.setText("");
             }
@@ -54,7 +54,7 @@ public class LyricDecoder {
             }
             lyricLine.setStartTime(duration);
             if (s != null) {
-                lyricLine.setTranslatedText(s.trim());
+                lyricLine.setTranslatedText(s.replace('\u00A0', ' ').trim());
             } else {
                 lyricLine.setTranslatedText("");
             }

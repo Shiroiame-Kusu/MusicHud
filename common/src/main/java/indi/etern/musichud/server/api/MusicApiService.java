@@ -125,7 +125,7 @@ public class MusicApiService {
             if (response.code == 200) {
                 MusicResourceInfo musicResourceInfo = response.data.getFirst();
                 // 30 seconds trial or have no copyright
-                if (musicResourceInfo.getTime() == 30040 || musicResourceInfo.getUrl() == null) {
+                if (musicResourceInfo.getTime() <= 30040 || musicResourceInfo.getUrl() == null) {
                     musicResourceInfo = getMusicResourceInfoFromMatcher(musicDetail);
                 }
                 completeLyricInfo(musicDetail, musicResourceInfo);
@@ -179,7 +179,7 @@ public class MusicApiService {
     }
 
     public LyricInfo getLyricInfo(MusicDetail musicDetail) {
-        var response = ApiClient.post(ServerApiMeta.Music.WORD_BY_WORD_LYRIC, new IdRequest(musicDetail.getId()), loginApiService.randomVipCookieOr(loginApiService.getAnonymousCookie()));
+        var response = ApiClient.post(ServerApiMeta.Music.WORD_BY_WORD_LYRIC, new IdRequest(musicDetail.getId()), loginApiService.randomVipCookieOr(loginApiService::getAnonymousCookie));
         if (response.getCode() == 200) {
             return response;
         } else {

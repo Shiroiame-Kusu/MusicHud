@@ -16,7 +16,6 @@ in vec4 f_Color;
 
 out vec4 fragColor;
 
-// 保留你现有的辅助函数
 float aastep(float x) {
     vec2 grad = vec2(dFdx(x), dFdy(x));
     float afwidth = 0.7 * length(grad);
@@ -40,22 +39,22 @@ vec4 dither(vec4 color) {
 vec2 calculateCoverUV(vec2 position, vec2 halfSize, float imageAspect) {
     float rectAspect = halfSize.x / halfSize.y;
 
-    const float epsilon = 0.001;
-    imageAspect = max(imageAspect, epsilon);
-    rectAspect = max(rectAspect, epsilon);
-
+    // 简单的cover计算
     vec2 scale;
     if (imageAspect > rectAspect) {
-        scale = vec2(imageAspect / rectAspect, 1.0);
+        // 图片宽，需要横向裁剪
+        scale = vec2(rectAspect / imageAspect, 1.0);
     } else {
-        scale = vec2(1.0, rectAspect / imageAspect);
+        // 图片高，需要纵向裁剪
+        scale = vec2(1.0, imageAspect / rectAspect);
     }
 
     vec2 normalizedPos = (position / halfSize) * 0.5 + 0.5;
-    vec2 uv = (normalizedPos - 0.5) / scale + 0.5;
 
-    // 不使用 clamp,直接返回
-    return uv;
+    // 关键修正：从中心缩放
+    vec2 uv = (normalizedPos - 0.5) * scale + 0.5;
+
+    return clamp(uv, 0.0, 1.0);
 }
 
 void main() {

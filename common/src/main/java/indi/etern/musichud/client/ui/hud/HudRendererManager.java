@@ -66,8 +66,8 @@ public class HudRendererManager {
                 if (instance == null) {
                     instance = new HudRendererManager();
                     BackgroundColor bgColor = new BackgroundColor(
-                            0xA01A1A1A, 0xF0202020,
-                            0XD0202020, 0xE42A2A2A
+                            0x801A1A1A, 0xFC202020,
+                            0XC0202020, 0xC02A2A2A
                     );
                     instance.setBgColor(bgColor);
                     instance.updateLayoutFromConfig();
@@ -82,14 +82,17 @@ public class HudRendererManager {
         return instance;
     }
 
-    private static void updateStatus(StreamAudioPlayer.Status c) {//TODO test
+    private static void updateStatus(StreamAudioPlayer.Status c) {
         if (instance != null) {
-            TextRenderer.TextStyle currentTextData = instance.TITLE_RENDERER.getCurrentTextData();
-            String currentText = currentTextData == null ? "" : currentTextData.text;
+            MusicDetail currentlyPlayingMusicDetail = NowPlayingInfo.getInstance().getCurrentlyPlayingMusicDetail();
+            String currentText = currentlyPlayingMusicDetail == null ? "" : currentlyPlayingMusicDetail.getName();
             if (!idleText.equals(currentText)) {
                 String s = currentText.replace(errorAppendText, "").replace(retryingAppendText, "").replace(bufferingAppendText, "");
                 switch (c) {
-                    case IDLE, PLAYING -> {
+                    case IDLE -> {
+                        instance.TITLE_RENDERER.setText("暂无播放音乐");
+                    }
+                    case PLAYING -> {
                         instance.TITLE_RENDERER.setText(s);
                     }
                     case ERROR -> {
@@ -161,7 +164,6 @@ public class HudRendererManager {
         float rest = baseLayout.height - padding * 2 - titleSize - progressHeight - normalTextSize - 2;
         float lyricsSize = rest <= 8f ? 0 : 6f;
         float subLyricsSize = rest <= 14f ? 0 : 5f;
-//        float lyricsY = padding + 10f;
         float lyricsY = padding + 10f + Math.max(0, (rest - lyricsSize - subLyricsSize - 7) / 2);
         float textStartX = progressX;
         float titleY = padding + 1f;
@@ -178,9 +180,6 @@ public class HudRendererManager {
         subLyricsLayout.setParent(baseLayout);
         LYRICS_RENDERER.configureLayout(lyricsLayout, Theme.NORMAL_TEXT_COLOR, TextRenderer.Position.LEFT);
         SUB_LYRICS_RENDERER.configureLayout(subLyricsLayout, Theme.SECONDARY_TEXT_COLOR, TextRenderer.Position.LEFT);
-
-//        LYRICS_RENDERER.setText("This is EN lyrics");
-//        SUB_LYRICS_RENDERER.setText("芝士歌词");
 
         Layout artistAndAlbumLayout = Layout.ofTextLayout(textStartX, aboveProgressY, progressWidth, normalTextSize);
         artistAndAlbumLayout.setParent(baseLayout);
@@ -256,7 +255,7 @@ public class HudRendererManager {
             ImageUtils.downloadAsync(musicDetail.getAlbum().getThumbnailPicUrl(200))
                     .thenAccept(imageTextureData -> {
                         imageTextureData.register().thenAcceptAsync((v) -> {
-                            ImageTextureData blurredImageTextureData = ImageBlurPostProcessor.blur(imageTextureData, 100);
+                            ImageTextureData blurredImageTextureData = ImageBlurPostProcessor.blur(imageTextureData, 50);
                             blurredImageTextureData.register().thenAccept((v1) -> Minecraft.getInstance().execute(() -> {
                                 if (musicDetail.equals(nowPlayingInfo.getCurrentlyPlayingMusicDetail())) {
                                     var nextData = new TransitionNextData(blurredImageTextureData.getLocation(), imageTextureData.getLocation(), 1f);

@@ -216,11 +216,13 @@ public class AccountView extends LinearLayout {
                 if (context != null) {
                     MuiModApi.postToUiThread(() -> {
                         for (Playlist playlist : playlists) {
-                            playlistCards.addView(new PlaylistCard(context, playlist));
+                            if (context != null) {
+                                playlistCards.addView(new PlaylistCard(context, playlist));
+                            }
                         }
                         removeView(progressBar);
                     });
-                }
+                    }
             }, MusicHud.EXECUTOR);
 
             musicService.getIdlePlaylists().forEach(playlist -> {
