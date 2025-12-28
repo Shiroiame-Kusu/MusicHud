@@ -1,7 +1,7 @@
 # Music Hud
 ![Static Badge](https://img.shields.io/badge/Java-21-red?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Minecraft-1.21.8-blue?style=for-the-badge)
-![Static Badge](https://img.shields.io/badge/Version-1.0.0_prerelease_2-cyan?style=for-the-badge)
+![Static Badge](https://img.shields.io/badge/Version-1.0.0_stable-cyan?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Platform-Fabric-green?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/Platform-Neoforge-orange?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/License-LGPLv3-brightgreen?style=for-the-badge)
@@ -31,7 +31,7 @@
 ### 客户端
 > 目前不支持在单人游戏中使用
 
-在 mods 文件夹中放入 Architectury API, ModernUI 和 Forge Config API Port 这 3 个前置 mod 和 MusicHud 的 jar 文件即可
+在 mods 文件夹中放入 Architectury API, ModernUI 和 Forge Config API Port (仅Fabric需要) 这几个前置 mod 和 MusicHud 的 jar 文件即可
 ### 服务端
 1. 部署 Netease Cloud Music API Enhanced (https://github.com/neteasecloudmusicapienhanced/api-enhanced)
 2. 如果不使用 NCM API Enhanced 的默认端口 ( 3000 ) 或在其他服务器上部署，需要修改配置文件的 serverApiBaseUrl 属性
