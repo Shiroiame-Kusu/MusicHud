@@ -45,6 +45,7 @@ public class MainFragment extends Fragment {
     private UrlImageView albumImage;
     private TextView titleText;
     private TextView artistsText;
+    private TextView pusherText;
     @Setter
     private int defaultSelectedIndex = 0;
     private ProgressBar progressBar;
@@ -92,6 +93,7 @@ public class MainFragment extends Fragment {
                 }
                 instance.titleText.setTextColor(Theme.SECONDARY_TEXT_COLOR);
                 instance.artistsText.setText("");
+                instance.pusherText.setText("");
                 instance.progressBar.setVisibility(View.GONE);
                 instance.progressText.setText("");
                 instance.skipCurrentButton.setVisibility(View.GONE);
@@ -99,6 +101,12 @@ public class MainFragment extends Fragment {
                 instance.titleText.setTextColor(Theme.NORMAL_TEXT_COLOR);
                 instance.albumImage.loadUrl(musicDetail.getAlbum().getThumbnailPicUrl(200));
                 instance.titleText.setText(musicDetail.getName());
+                String name = NowPlayingInfo.getInstance().getPusherPlayerInfo().getProfile().getName();
+                if (name == null || name.isEmpty()) {
+                    instance.pusherText.setText("");
+                } else {
+                    instance.pusherText.setText("来自 " + name);
+                }
                 instance.artistsText.setText(musicDetail.getArtists().stream()
                         .map(Artist::getName)
                         .reduce((a, b) -> a + " / " + b)
@@ -107,7 +115,6 @@ public class MainFragment extends Fragment {
                 instance.skipCurrentButton.setEnabled(true);
                 instance.skipCurrentButton.setVisibility(ClientConfigDefinition.enable.get() ? View.VISIBLE : View.GONE);
                 instance.progressBar.setVisibility(View.VISIBLE);
-                instance.progressBar.setMax(musicDetail.getDurationMillis());
                 instance.skipCurrentButton.setVisibility(View.VISIBLE);
                 startProgressUpdater(musicDetail);
             }
@@ -137,7 +144,7 @@ public class MainFragment extends Fragment {
                 );
                 MuiModApi.postToUiThread(() -> {
                     if (instance != null && instance.progressBar != null) {
-                        instance.progressBar.setProgress(Math.clamp((int) playedDuration.toMillis(), 0, musicDetail.getDurationMillis()));
+                        instance.progressBar.setProgress((int) (nowPlayingInfo.getProgressRate() * 100));
                         instance.progressText.setText(playtimeText);
                     }
                 });
@@ -215,11 +222,17 @@ public class MainFragment extends Fragment {
                 artistsText.setTextSize(artistsText.dp(8));
                 musicInfo.addView(artistsText);
 
+                pusherText = new TextView(context);
+                pusherText.setTextColor(Theme.SECONDARY_TEXT_COLOR);
+                pusherText.setTextSize(pusherText.dp(8));
+                musicInfo.addView(pusherText);
+
                 progressBar = new ProgressBar(context, null, R.attr.progressBarStyleHorizontal);
                 progressBar.setMin(0);
+                progressBar.setMax(100);
                 progressBar.setVisibility(View.GONE);
                 LinearLayout.LayoutParams params2 = new LinearLayout.LayoutParams(MATCH_PARENT, base.dp(4));
-                params2.setMargins(0, 0, 0, side.dp(-4));
+                params2.setMargins(0, side.dp(1), 0, side.dp(-4));
                 musicInfo.addView(progressBar, params2);
 
                 progressText = new TextView(context);
@@ -268,9 +281,7 @@ public class MainFragment extends Fragment {
                 side.addView(sideMenu, params);
                 base.addView(side, params);
 
-                if (currentlyPlayingMusicDetail != null) {
-                    switchMusic(currentlyPlayingMusicDetail, playingInfo.getLyricLines());
-                }
+                switchMusic(currentlyPlayingMusicDetail, playingInfo.getLyricLines());
             }
             var params = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, 0);
             params.setMargins(routerContainer.dp(80), 0, routerContainer.dp(64), 0);

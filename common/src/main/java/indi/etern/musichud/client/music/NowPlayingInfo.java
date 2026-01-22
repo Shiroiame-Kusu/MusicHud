@@ -119,7 +119,7 @@ public class NowPlayingInfo {
                 this.lyricLines = lyricLines;
                 this.atomicLyricLines.set(new ArrayDeque<>(lyricLines));
             } catch (Exception e) {
-                logger.warn("Failed to load lyrics of music: {} (id:{}) ", musicDetail.getName(), musicDetail.getId());
+                logger.warn("Failed to load lyrics of music: {} (id:{}), exception: {}: {}", musicDetail.getName(), musicDetail.getId(), e.getClass().getName(), e.getMessage());
             }
         } else {
             this.lyricLines = null;
@@ -181,7 +181,7 @@ public class NowPlayingInfo {
         return startedPlayingDuration.compareTo(musicDuration) > 0;
     }
 
-    public PlayerInfo getPusherPlayerInfo() {//TODO
+    public PlayerInfo getPusherPlayerInfo() {
         Minecraft minecraft = Minecraft.getInstance();
         ClientPacketListener connection = minecraft.getConnection();
         if (connection == null) {

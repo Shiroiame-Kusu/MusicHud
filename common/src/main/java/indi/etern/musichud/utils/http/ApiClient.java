@@ -11,11 +11,15 @@ import indi.etern.musichud.utils.JsonUtil;
 import lombok.SneakyThrows;
 
 import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 public class ApiClient {
@@ -137,5 +141,26 @@ public class ApiClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record CodeOnlyResponse(int code) {
+    }
+
+    public static boolean checkUrlAvailable(String urlString, int timeoutMillis) {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URI(urlString).toURL();
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("HEAD");
+            connection.setConnectTimeout(timeoutMillis);
+            connection.setReadTimeout(timeoutMillis);
+            connection.setInstanceFollowRedirects(false); // 不自动重定向
+
+            int responseCode = connection.getResponseCode();
+            return responseCode == HttpURLConnection.HTTP_OK;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 }

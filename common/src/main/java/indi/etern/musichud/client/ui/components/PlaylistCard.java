@@ -39,6 +39,7 @@ public class PlaylistCard extends LinearLayout {
         imageParams.setMargins(0, 0, 0, dp(4));
         addView(imageView, imageParams);
         imageView.loadUrl(playlist.getCoverImgUrl());
+        imageView.setCornerRadius(dp(8));
 
         TextView name = new TextView(context);
         name.setTextSize(dp(8));
@@ -51,10 +52,10 @@ public class PlaylistCard extends LinearLayout {
         addToWaitingListButton = new Button(context);
         updateButton();
         addToWaitingListButton.setTextColor(Theme.SECONDARY_TEXT_COLOR);
-        addToWaitingListButton.setTextSize(dp(6));
+        addToWaitingListButton.setTextSize(dp(7));
         Drawable background1 = ButtonInsetBackground.builder()
                 .inset(0)
-                .cornerRadius(dp(4))
+                .cornerRadius(dp(8))
                 .padding(new ButtonInsetBackground.Padding(dp(4), dp(8), dp(4), dp(8)))
                 .build().get();
         addToWaitingListButton.setBackground(background1);
@@ -62,11 +63,9 @@ public class PlaylistCard extends LinearLayout {
             if (musicService.getIdlePlaylists().contains(playlist)) {
                 Toast.makeText(context, "已从空闲播放源移除\n" + playlist.getName(), Toast.LENGTH_SHORT).show();
                 musicService.removeFromIdlePlaySource(playlist);
-//                addToWaitingListButton.setText("添加到空闲播放源");
             } else {
                 Toast.makeText(context, "已添加到空闲播放源\n" + playlist.getName(), Toast.LENGTH_SHORT).show();
                 musicService.addToIdlePlaySource(playlist);
-//                addToWaitingListButton.setText("从空闲播放源移除");
             }
         });
         addView(addToWaitingListButton, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));

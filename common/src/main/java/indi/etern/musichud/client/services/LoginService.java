@@ -44,6 +44,7 @@ public class LoginService {
     @Getter
     NetworkManager.NetworkReceiver<LoginResultMessage> loginResultReceiver = (loginResult, context) -> {
         MusicHud.EXECUTOR.submit(() -> {
+            Thread.currentThread().setName("Login Processor");
             LoginCookieInfo loginCookieInfo = loginResult.loginCookieInfo();
             LoginType type = loginCookieInfo.type();
             if (type != LoginType.UNLOGGED && type != LoginType.ANONYMOUS && loginResult.success()) {

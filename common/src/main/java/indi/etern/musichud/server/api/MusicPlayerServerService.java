@@ -50,7 +50,7 @@ public class MusicPlayerServerService {
         @Override
         public void run() {
             Thread thread = Thread.currentThread();
-            thread.setName("Music Data Pusher Thread");
+            thread.setName("Music Data Pusher");
             pusherThread = thread;
             String message = "";
             while (MusicPlayerServerService.this.continuable) {

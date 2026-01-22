@@ -36,7 +36,7 @@ public class StreamAudioPlayer {
     private final int[] buffers = new int[BUFFER_COUNT];
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicReference<Status> status = new AtomicReference<>(Status.IDLE);
-    private final int retryDelayMs = 1000;
+    private final int retryDelayAdditionalMs = 1000;
     private final BlockingQueue<byte[]> audioBuffer = new LinkedBlockingQueue<>(30); // 最大30个数据块的缓冲区
 
     @Getter
@@ -149,6 +149,7 @@ public class StreamAudioPlayer {
             CompletableFuture<ZonedDateTime> startPlayingFuture = new CompletableFuture<>();
 
             downloadFuture = MusicHud.EXECUTOR.submit(() -> {
+                Thread.currentThread().setName("Downloader");
                 try {
                     downloadAudioWithRetry(urlString, formatType, startTime != null);
                 } catch (Exception e) {
@@ -163,6 +164,7 @@ public class StreamAudioPlayer {
             });
 
             playingFuture = MusicHud.EXECUTOR.submit(() -> {
+                Thread.currentThread().setName("Music Player");
                 try {
                     playAudioWithRetry(startPlayingFuture);
                 } catch (Exception e) {
@@ -419,7 +421,7 @@ public class StreamAudioPlayer {
 
                 try {
                     // 等待重试延迟
-                    int delay = retryDelayMs;
+                    int delay = localRetryCount * retryDelayAdditionalMs;
                     LOGGER.debug("Waiting {} ms before retry", delay);
                     Thread.sleep(delay);
                 } catch (InterruptedException ie) {

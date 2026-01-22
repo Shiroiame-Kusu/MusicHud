@@ -8,7 +8,9 @@
     "Etern"
   ],
   "contact": {
-    "sources": "https://github.com/Etern-34520/MusicHud"
+    "sources": "https://github.com/Etern-34520/MusicHud",
+    "homepage": "https://modrinth.com/mod/music-hud",
+    "issues": "https://github.com/Etern-34520/MusicHud/issues"
   },
   "license": "LGPL-3.0",
   "icon": "assets/music_hud/icon.png",

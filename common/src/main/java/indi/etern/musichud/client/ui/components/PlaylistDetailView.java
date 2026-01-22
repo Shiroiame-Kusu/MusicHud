@@ -40,18 +40,19 @@ public class PlaylistDetailView extends LinearLayout {
         });
         Drawable drawable = ButtonInsetBackground.builder()
                 .inset(0)
-                .cornerRadius(dp(16))
+                .cornerRadius(dp(8))
                 .padding(new ButtonInsetBackground.Padding(dp(16), 0, dp(16), 0))
                 .build().get();
         backButton.setBackground(drawable);
-        LayoutParams buttonParam = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
-        buttonParam.setMargins(0, 0, dp(8), 0);
-        topBar.addView(backButton, buttonParam);
+        LayoutParams topBarParams = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
+        topBarParams.setMargins(0, 0, dp(4), 0);
+        topBar.addView(backButton, topBarParams);
 
         UrlImageView imageView = new UrlImageView(context);
-        LayoutParams imageParams = new LayoutParams(dp(72), dp(72));
+        LayoutParams imageParams = new LayoutParams(dp(60), dp(60));
         topBar.addView(imageView, imageParams);
         imageView.loadUrl(playlist.getCoverImgUrl());
+        imageView.setCornerRadius(dp(8));
 
         LinearLayout texts = new LinearLayout(context);
         texts.setGravity(Gravity.CENTER_VERTICAL);
@@ -87,7 +88,7 @@ public class PlaylistDetailView extends LinearLayout {
         scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
         scrollView.setFillViewport(true);
         LayoutParams tracksParams = new LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        tracksParams.setMargins(0, dp(32), 0, 0);
+        tracksParams.setMargins(0, dp(24), 0, 0);
         addView(scrollView, tracksParams);
 
         LinearLayout tracks = new LinearLayout(context);

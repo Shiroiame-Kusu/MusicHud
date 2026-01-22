@@ -539,6 +539,8 @@ public class HomeView extends LinearLayout {
                             }
                         }
                     }
+                } else {
+                    lyricLinesView.removeAllViews();
                 }
 
                 lyricLinesView.post(() -> {
